@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ejercicios Modelo - Examen de Pseudocódigo</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+            background-color: #f8f9fa;
+        }
+        
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            border-bottom: 3px solid #3498db;
+            padding-bottom: 10px;
+            margin-bottom: 30px;
+        }
+        
+        h2 {
+            color: #34495e;
+            background-color: #ecf0f1;
+            padding: 10px 15px;
+            border-left: 4px solid #3498db;
+            margin-top: 30px;
+        }
+        
+        h3 {
+            color: #e74c3c;
+            background-color: #fff5f5;
+            padding: 8px 12px;
+            border-left: 3px solid #e74c3c;
+            margin-top: 25px;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            font-size: 14px;
+        }
+        
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        
+        th {
+            background-color: #3498db;
+            color: white;
+            font-weight: bold;
+            text-align: center;
+        }
+        
+        tr:nth-child(even) {
+            background-color: #f8f9fa;
+        }
+        
+        tr:hover {
+            background-color: #e8f4f8;
+        }
+        
+        .ejercicio {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        
+        .objetivo {
+            background-color: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 0 5px 5px 0;
+        }
+        
+        .opciones {
+            margin: 15px 0;
+        }
+        
+        .opcion {
+            background-color: white;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 10px 0;
+            transition: all 0.3s ease;
+        }
+        
+        .opcion:hover {
+            background-color: #f0f8ff;
+            border-color: #3498db;
+            box-shadow: 0 2px 5px rgba(52, 152, 219, 0.2);
+        }
+        
+        .opcion-letra {
+            font-weight: bold;
+            color: #e74c3c;
+            font-size: 18px;
+            margin-right: 10px;
+        }
+        
+        .paso {
+            margin: 5px 0;
+            padding-left: 20px;
+        }
+        
+        .numero-ejercicio {
+            background-color: #3498db;
+            color: white;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            margin-right: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Ejercicios Modelo - Examen de Pensamiento Algorítmico</h1>
+
+        <h2>Base de Datos: Empresa Comercial</h2>
+        <p>La siguiente tabla contiene información de vendedores de una empresa durante el primer semestre de 2024:</p>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>id_vendedor</th>
+                    <th>nombre</th>
+                    <th>sucursal</th>
+                    <th>region</th>
+                    <th>ventas_q1</th>
+                    <th>ventas_q2</th>
+                    <th>años_empresa</th>
+                    <th>categoria_contrato</th>
+                    <th>comision_base</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td>001</td><td>García</td><td>Norte</td><td>CABA</td><td>45000</td><td>52000</td><td>3</td><td>Planta</td><td>0.02</td></tr>
+                <tr><td>002</td><td>López</td><td>Sur</td><td>GBA</td><td>38000</td><td>41000</td><td>7</td><td>Planta</td><td>0.025</td></tr>
+                <tr><td>003</td><td>Martín</td><td>Centro</td><td>CABA</td><td>67000</td><td>58000</td><td>2</td><td>Contrato</td><td>0.015</td></tr>
+                <tr><td>004</td><td>Silva</td><td>Norte</td><td>CABA</td><td>29000</td><td>35000</td><td>5</td><td>Planta</td><td>0.02</td></tr>
+                <tr><td>005</td><td>Rodríguez</td><td>Sur</td><td>GBA</td><td>54000</td><td>49000</td><td>1</td><td>Contrato</td><td>0.015</td></tr>
+                <tr><td>006</td><td>Fernández</td><td>Centro</td><td>CABA</td><td>41000</td><td>46000</td><td>4</td><td>Planta</td><td>0.02</td></tr>
+                <tr><td>007</td><td>Morales</td><td>Este</td><td>Interior</td><td>33000</td><td>38000</td><td>6</td><td>Planta</td><td>0.025</td></tr>
+                <tr><td>008</td><td>Castro</td><td>Este</td><td>Interior</td><td>28000</td><td>31000</td><td>2</td><td>Contrato</td><td>0.015</td></tr>
+            </tbody>
+        </table>
+
+        <div class="ejercicio">
+            <h3><span class="numero-ejercicio">1</span>Ejercicio 1</h3>
+            <div class="objetivo">
+                <strong>Objetivo:</strong> Obtener una tabla que muestre el nombre del vendedor, la sucursal y las ventas totales del semestre (suma de Q1 y Q2), ordenada de mayor a menor por ventas totales.
+            </div>
+            <div class="opciones">
+                <div class="opcion">
+                    <span class="opcion-letra">A)</span>
+                    <div class="paso">1. Filtrar vendedores con ventas > 50000</div>
+                    <div class="paso">2. Crear variable ventas_totales = ventas_q1 + ventas_q2</div>
+                    <div class="paso">3. Seleccionar nombre, sucursal, ventas_totales</div>
+                    <div class="paso">4. Ordenar descendente por ventas_totales</div>
+                </div>
+                <div class="opcion">
+                    <span class="opcion-letra">B)</span>
+                    <div class="paso">1. Seleccionar nombre, sucursal, ventas_q1, ventas_q2</div>
+                    <div class="paso">2. Crear variable ventas_totales = ventas_q1 + ventas_q2</div>
+                    <div class="paso">3. Seleccionar nombre, sucursal, ventas_totales</div>
+                    <div class="paso">4. Ordenar descendente por ventas_totales</div>
+                </div>
+                <div class="opcion">
+                    <span class="opcion-letra">C)</span>
+                    <div class="paso">1. Crear variable ventas_totales = ventas_q1 + ventas_q2</div>
+                    <div class="paso">2. Agrupar por sucursal</div>
+                    <div class="paso">3. Calcular suma de ventas_totales</div>
+                    <div class="paso">4. Ordenar descendente por suma</div>
+                </div>
+                <div class="opcion">
+                    <span class="opcion-letra">D)</span>
+                    <div class="paso">1. Seleccionar nombre, sucursal</div>
+                    <div class="paso">2. Calcular promedio de ventas_q1 y ventas_q2</div>
+                    <div class="paso">3. Ordenar ascendente por promedio</div>
+                    <div class="paso">4. Mostrar primeros 5 resultados</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="ejercicio">
+            <h3><span class="numero-ejercicio">2</span>Ejercicio 2</h3>
+            <div class="objetivo">
+                <strong>Objetivo:</strong> Mostrar una tabla con la región, la cantidad de vendedores y el promedio de años de experiencia por región.
+            </div>
+            <div class="opciones">
+                <div class="opcion">
+                    <span class="opcion-letra">A)</span>
+                    <div class="paso">1. Filtrar por categoria_contrato = "Planta"</div>
+                    <div class="paso">2. Agrupar por region</div>
+                    <div class="paso">3. Contar vendedores y calcular promedio de años_empresa</div>
+                    <div class="paso">4. Ordenar por cantidad de vendedores</div>
+                </div>
+                <div class="opcion">
+                    <span class="opcion-letra">B)</span>
+                    <div class="paso">1. Seleccionar region, años_empresa</div>
+                    <div class="paso">2. Agrupar por region</div>
+                    <div class="paso">3. Contar vendedores y calcular promedio de años_empresa</div>
+                    <div class="paso">4. Crear variable experiencia_categoria según años</div>
+                </div>
+                <div class="opcion">
+                    <span class="opcion-letra">C)</span>
+                    <div class="paso">1. Agrupar por region</div>
+                    <div class="paso">2. Contar vendedores y calcular promedio de años_empresa</div>
+                    <div class="paso">3. Filtrar regiones con más de 2 vendedores</div>
+                    <div class="paso">4. Ordenar alfabéticamente por region</div>
+                </div>
+                <div class="opcion">
+                    <span class="opcion-letra">D)</span>
+                    <div class="paso">1. Agrupar por region</div>
+                    <div class="paso">2. Contar vendedores y calcular promedio de años_empresa</div>
+                    <div class="paso">3. Seleccionar region, cantidad_vendedores, promedio_experiencia</div>
+                    <div class="paso">4. Mostrar resultado</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="ejercicio">
+            <h3><span class="numero-ejercicio">3</span>Ejercicio 3</h3>
+            <div class="objetivo">
+                <strong>Objetivo:</strong> Obtener una tabla que muestre los vendedores con "Alto Rendimiento" (ventas totales > 90000) incluyendo nombre, ventas totales y comisión ganada (ventas totales × comision_base).
+            </div>
+            <div class="opciones">
+                <div class="opcion">
+                    <span class="opcion-letra">A)</span>
+                    <div class="paso">1. Crear variable ventas_totales = ventas_q1 + ventas_q2</div>
+                    <div class="paso">2. Crear variable comision_ganada = ventas_totales × comision_base</div>
+                    <div class="paso">3. Filtrar vendedores con ventas_totales > 90000</div>
+                    <div class="paso">4. Seleccionar nombre, ventas_totales, comision_ganada</div>
+                </div>
+                <div class="opcion">
+                    <span class="opcion-letra">B)</span>
+                    <div class="paso">1. Filtrar vendedores con ventas_q1 > 45000</div>
+                    <div class="paso">2. Filtrar vendedores con ventas_q2 > 45000</div>
+                    <div class="paso">3. Crear variable comision_ganada = (ventas_q1 + ventas_q2) × comision_base</div>
+                    <div class="paso">4. Seleccionar nombre, comision_ganada</div>
+                </div>
+                <div class="opcion">
+                    <span class="opcion-letra">C)</span>
+                    <div class="paso">1. Agrupar por categoria_contrato</div>
+                    <div class="paso">2. Calcular promedio de ventas por categoria</div>
+                    <div class="paso">3. Filtrar categorias con promedio > 90000</div>
+                    <div class="paso">4. Mostrar vendedores de esas categorias</div>
+                </div>
+                <div class="opcion">
+                    <span class="opcion-letra">D)</span>
+                    <div class="paso">1. Crear variable ventas_totales = ventas_q1 + ventas_q2</div>
+                    <div class="paso">2. Ordenar descendente por ventas_totales</div>
+                    <div class="paso">3. Seleccionar primeros 3 vendedores</div>
+                    <div class="paso">4. Calcular comision para esos vendedores</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="ejercicio">
+            <h3><span class="numero-ejercicio">4</span>Ejercicio 4</h3>
+            <div class="objetivo">
+                <strong>Objetivo:</strong> Crear una tabla que compare el rendimiento por tipo de contrato, mostrando la categoría de contrato, cantidad de vendedores, ventas totales promedio y la diferencia porcentual entre Q2 y Q1.
+            </div>
+            <div class="opciones">
+                <div class="opcion">
+                    <span class="opcion-letra">A)</span>
+                    <div class="paso">1. Crear variable crecimiento = ((ventas_q2 - ventas_q1) / ventas_q1) × 100</div>
+                    <div class="paso">2. Crear variable ventas_totales = ventas_q1 + ventas_q2</div>
+                    <div class="paso">3. Agrupar por categoria_contrato</div>
+                    <div class="paso">4. Contar vendedores, calcular promedio de ventas_totales y promedio de crecimiento</div>
+                </div>
+                <div class="opcion">
+                    <span class="opcion-letra">B)</span>
+                    <div class="paso">1. Filtrar por ventas_q2 > ventas_q1</div>
+                    <div class="paso">2. Agrupar por categoria_contrato</div>
+                    <div class="paso">3. Contar vendedores con crecimiento positivo</div>
+                    <div class="paso">4. Calcular ventas totales por categoria</div>
+                </div>
+                <div class="opcion">
+                    <span class="opcion-letra">C)</span>
+                    <div class="paso">1. Agrupar por categoria_contrato</div>
+                    <div class="paso">2. Calcular suma de ventas_q1 y ventas_q2</div>
+                    <div class="paso">3. Crear ranking por categoria</div>
+                    <div class="paso">4. Mostrar diferencia absoluta entre trimestres</div>
+                </div>
+                <div class="opcion">
+                    <span class="opcion-letra">D)</span>
+                    <div class="paso">1. Seleccionar categoria_contrato, ventas_q1, ventas_q2</div>
+                    <div class="paso">2. Crear variable diferencia = ventas_q2 - ventas_q1</div>
+                    <div class="paso">3. Agrupar por categoria_contrato</div>
+                    <div class="paso">4. Calcular promedio de diferencia por categoria</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="ejercicio">
+            <h3><span class="numero-ejercicio">5</span>Ejercicio 5</h3>
+            <div class="objetivo">
+                <strong>Objetivo:</strong> Identificar las sucursales "problemáticas" (con ventas promedio por vendedor menores a 40000 en el semestre) y mostrar sucursal, región, cantidad de vendedores y ventas promedio por vendedor.
+            </div>
+            <div class="opciones">
+                <div class="opcion">
+                    <span class="opcion-letra">A)</span>
+                    <div class="paso">1. Crear variable ventas_totales = ventas_q1 + ventas_q2</div>
+                    <div class="paso">2. Agrupar por sucursal y region</div>
+                    <div class="paso">3. Contar vendedores y calcular promedio de ventas_totales</div>
+                    <div class="paso">4. Filtrar sucursales con promedio < 40000</div>
+                </div>
+                <div class="opcion">
+                    <span class="opcion-letra">B)</span>
+                    <div class="paso">1. Filtrar vendedores con ventas_q1 < 20000 o ventas_q2 < 20000</div>
+                    <div class="paso">2. Agrupar por sucursal</div>
+                    <div class="paso">3. Contar vendedores filtrados</div>
+                    <div class="paso">4. Mostrar sucursales con vendedores problemáticos</div>
+                </div>
+                <div class="opcion">
+                    <span class="opcion-letra">C)</span>
+                    <div class="paso">1. Agrupar por sucursal</div>
+                    <div class="paso">2. Calcular ventas totales por sucursal</div>
+                    <div class="paso">3. Dividir entre cantidad de vendedores</div>
+                    <div class="paso">4. Filtrar con resultado < 40000</div>
+                </div>
+                <div class="opcion">
+                    <span class="opcion-letra">D)</span>
+                    <div class="paso">1. Crear variable ventas_totales = ventas_q1 + ventas_q2</div>
+                    <div class="paso">2. Filtrar vendedores con ventas_totales < 40000</div>
+                    <div class="paso">3. Agrupar por sucursal</div>
+                    <div class="paso">4. Contar vendedores y mostrar información de sucursal</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
