@@ -1,0 +1,5 @@
+B - Secuencia lógica correcta: seleccionar variables necesarias, crear la variable calculada, reseleccionar el resultado final y ordenar.
+D - Directa y eficiente: agrupa por la variable de interés y calcula las estadísticas requeridas sin pasos innecesarios.
+A - Orden correcto: primero crea las variables necesarias, luego filtra según el criterio y finalmente selecciona las columnas del resultado.
+A - Completa: crea ambas variables calculadas necesarias, agrupa correctamente y calcula todas las estadísticas solicitadas.
+A - Metodología adecuada: crea la variable base, agrupa por las dimensiones correctas, calcula el promedio y aplica el filtro del criterio.
