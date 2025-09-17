@@ -84,7 +84,7 @@ viviendas <- tibble(
 
 # TABLA 5: Movilidad laboral
 movilidad <- expand_grid(
-  id_trabajador = sample(trabajadores$id_trabajador, 400),
+  id_trabajador = sample(trabajadores$id_trabajador, 400,replace = TRUE),
   año = 2020:2024
 ) %>%
   group_by(id_trabajador) %>%
