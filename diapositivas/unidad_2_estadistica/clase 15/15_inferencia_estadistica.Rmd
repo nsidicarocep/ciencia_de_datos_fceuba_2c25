@@ -1,0 +1,819 @@
+---
+title: "Unidad 2: Estadística Basica y Aplicada"
+subtitle: "Inferencia estadistica"
+institution: "FCE-UBA"
+author: "Nicolas Sidicaro"
+date: "Octubre 2025"
+output:
+  xaringan::moon_reader:
+    css: [default, metropolis, metropolis-fonts]
+    lib_dir: libs
+    nature:
+      highlightStyle: github
+      highlightLines: true
+      countIncrementalSlides: false
+---
+
+layout: true
+<div style="position: absolute;left:60px;bottom:11px;color:gray;">`r rmarkdown::metadata$author` - `r rmarkdown::metadata$subtitle` - `r rmarkdown::metadata$institution`</div>
+
+---
+# El para que 
+
+**Caso**: queremos saber el ingreso promedio de los argentinos. Pero no podemos preguntarle a todos. Entonces tomamos una muestra (EPH)... ¿como llevamos las conclusiones de la muestra a la poblacion?
+
+--
+
+**Con la inferencia estadística**
+
+--
+
+**Conceptos**: población, muestra, parámetro, estadístico
+
+**En el caso**: los trabajadores argentinos; la EPH; el ingreso promedio de la poblacion ($\mu$); el ingreso promedio de la muestra ($\overline{x}$)
+
+---
+# ¿Como estudiamos la muestra? 
+
+Tomemos 1000 muestras de nuestra población de tamaño 100. 
+
+1. Cada muestra tendrá un promedio diferente
+
+2. Esos promedios forman una **distribucion muestral**
+
+3. Esta distribucion tiene propiedades predecibles 
+
+--
+
+**¿Gracias a quién?** Al Teorema Central del Límite 
+
+- Para muestras suficientemente grandes $\overline{x}$ es aproximadamente normal
+
+- Con media = $\mu$
+
+- Con error estandar = $\frac{\sigma}{\sqrt{n}}$
+
+---
+# Dada una poblacion exponencial
+
+```{r,echo=FALSE,message=FALSE}
+# Simulacion: Distribucion muestral del promedio
+library(tidyverse)
+
+# Poblacion: ingresos con distribucion asimetrica
+poblacion <- rexp(100000, rate = 1/50000)
+
+# Tomar 1000 muestras de size 100
+promedios_muestrales <- replicate(1000, {
+  muestra <- sample(poblacion, 100)
+  mean(muestra)
+})
+
+# Visualizar
+tibble(promedio = promedios_muestrales) %>%
+  ggplot(aes(x = promedio)) +
+  geom_histogram(bins = 50, fill = "steelblue", alpha = 0.7) +
+  geom_vline(xintercept = mean(poblacion), 
+             color = "red", linewidth = 1.5) +
+  labs(title = "Distribucion muestral del promedio",
+       subtitle = "1000 muestras de tamaño 100 de pop. exponencial asimétrica",
+       caption = 'Para ver código: código 1 - clase 15', 
+       x = "Promedio muestral",
+       y = "Frecuencia")
+```
+
+
+---
+#  Intervalos de Confianza
+
+**¿Qué es un intervalo de confianza?**
+
+**Definición**: Rango de valores plausibles para un parámetro poblacional.
+
+Interpretación correcta (95% de confianza):
+
+- Si repetimos el muestreo infinitas veces, el 95% de los intervalos calculados contendrán el verdadero parámetro
+
+Interpretación INCORRECTA:
+
+✗ "Hay 95% de probabilidad de que μ esté en este intervalo"
+✗ "El 95% de los datos están en este intervalo"
+
+**Fórmula general para desvío conocido**
+
+$$ IC = \overline{x} \pm z*\frac{\sigma}{\sqrt{n}}$$ 
+---
+# Factores que afectan el ancho del IC 
+
+```{r}
+# Simulación: Impacto del tamaño muestral
+tamaños <- c(10, 30, 100, 500)
+resultados <- map_df(tamaños, function(n) {
+  muestra <- rnorm(n, mean = 50, sd = 15)
+  ic <- t.test(muestra)$conf.int
+  tibble(
+    n = n,
+    ancho_ic = ic[2] - ic[1]
+  )
+})
+
+print(resultados)
+```
+
+Conclusión: A mayor n, menor ancho del IC (más precisión).
+
+---
+# Test de hipótesis
+
+**Caso**: Decimos que el salario promedio de Argentina es de 800 mil pesos, pero al tomar una muestra representantiva nos da 700 mil ¿la diferencia es por azar o hay evidencia suficiente para rechazar la afirmación inicial?
+
+**Componentes del test**
+
+1. Hipótesis Nula (H₀): Lo que asumimos verdadero hasta probar lo contrario
+
+2. Hipótesis Alternativa (H₁): Lo que queremos probar
+
+3. Estadístico de prueba: Número que resume la evidencia
+
+4. Nivel de significancia (α): Tolerancia al error (típicamente 0.05)
+
+5. P-valor: Probabilidad de obtener nuestros datos si H₀ es cierta
+
+6. Decisión: Rechazar o no rechazar H₀
+
+---
+
+--- 
+# Tipos de error 
+
+| | $H_0$ es verdadera | $H_0$ es falsa 
+|:--------------:|:--------------:|:--------------:|
+|No rechazamos $H_0$ | Decisión correcta | Error tipo II ($\beta$)|
+|Rechazamos $H_0$ | Error tipo I ($\alpha$) | Decisión correcta (Poder) | 
+
+---
+# P-value: interpretación correcta 
+
+**¿Qué es el p-value?**
+
+Probabilidad de observar un estadístico tan extremo (o más) como el observado, asumiendo que $H_0$ es verdadera. 
+
+Es decir, si $H_0$ fuera cierta ¿qué tan raro sería obtener estos datos?
+
+--
+
+**Nos ayuda a decidir sin ver los estadísticos**
+
+- Si $p-value < \alpha$ => se rechaza $H_0$
+- Si $p-value > \alpha$ => No se rechaza $H_0$
+
+Siendo un $\alpha$ = {0.1,0.05,0.01}
+
+---
+# Visualizacion de p-value 
+
+```{r,echo=FALSE}
+# Ejemplo: Test de una cola
+library(ggplot2)
+
+# Generar distribución bajo H0
+x <- seq(-4, 4, length.out = 1000)
+y <- dnorm(x)
+
+# Estadístico observado
+t_obs <- 2.3
+
+# Crear visualización
+tibble(x = x, y = y) %>%
+  ggplot(aes(x = x, y = y)) +
+  geom_line(linewidth = 1) +
+  geom_area(data = . %>% filter(x >= t_obs),
+            fill = "red", alpha = 0.3) +
+  geom_vline(xintercept = t_obs, 
+             color = "red", linewidth = 1.5, linetype = "dashed") +
+  annotate("text", x = t_obs + 0.5, y = 0.3, 
+           label = paste("t observado =", t_obs),
+           color = "red") +
+  annotate("text", x = 3, y = 0.05, 
+           label = paste("p-valor =", round(1 - pnorm(t_obs), 4)),
+           color = "red", size = 5) +
+  labs(title = "Visualizacion del p-valor",
+       x = "Estadistico t",
+       y = "Densidad",
+       caption = 'codigo_2 de Codigos en clase (Clase 15)') + 
+  theme_classic()
+
+```
+
+---
+# Supuestos de los tests paramétricos
+
+Antes de aplicar tests como el t-test, debemos verificar:
+
+1. **Normalidad**: Los datos (o residuos) siguen una distribución normal
+2. **Homogeneidad de varianzas**: Las varianzas son similares entre grupos
+3. **Independencia**: Las observaciones son independientes
+
+--
+
+**¿Por qué importa?**
+
+- Si se violan estos supuestos, los p-valores pueden ser incorrectos
+- Existen alternativas no paramétricas cuando no se cumplen
+
+**Herramientas para verificar normalidad**:
+- Test de Shapiro-Wilk
+- Gráficos Q-Q
+
+---
+# El rol del TCL
+
+**El Teorema Central del Límite nos protege... pero no siempre**
+
+| Tamaño muestral | ¿Verificar normalidad? | Razón |
+|-----------------|------------------------|-------|
+| **n < 30** | ✅ **SÍ, siempre** | TCL no aplica efectivamente |
+| **30 ≤ n < 100** | ⚠️ **Considerar** | TCL aplica, pero puede ser débil con asimetrías severas |
+| **n ≥ 100** | ✗ **Generalmente NO** | TCL garantiza normalidad de $\overline{x}$ |
+
+--
+
+**Matiz importante**: 
+
+- El t-test evalúa la **media muestral** ($\overline{x}$), no los datos individuales
+- Con n grande, $\overline{x}$ es normal **incluso si los datos no lo son** (gracias al TCL)
+- Con n pequeño, necesitamos que los **datos originales** sean aproximadamente normales
+
+---
+# Test de Shapiro-Wilk
+
+**¿Qué evalúa?**
+
+Contrasta si una muestra proviene de una distribución normal.
+
+- $H_0$: Los datos provienen de una distribución normal
+- $H_1$: Los datos NO provienen de una distribución normal
+
+**¿Cuándo es realmente necesario?**
+- **Crucial** para muestras pequeñas (n < 30)
+- **Opcional** para muestras medianas (30-100)
+- **Menos relevante** para muestras grandes (n > 100) por el TCL
+
+---
+# Test de Shapiro-Wilk
+
+```{r}
+# Datos que parecen normales
+datos_normales <- rnorm(50, mean = 100, sd = 15)
+shapiro.test(datos_normales)
+
+# Datos claramente NO normales (exponencial)
+datos_exponencial <- rexp(50, rate = 0.1)
+shapiro.test(datos_exponencial)
+```
+
+---
+# Limitaciones del Test de Shapiro
+
+**Problema 1: Sensible al tamaño muestral**
+
+- Con **muestras pequeñas** (n < 30): Poco poder, puede no detectar desviaciones importantes
+- Con **muestras grandes** (n > 200): Demasiado sensible, rechaza H₀ por desviaciones triviales que **no afectan** al t-test (el TCL ya protege)
+
+```{r,eval=FALSE}
+# Muestra grande de datos casi normales
+set.seed(123)
+datos_grandes <- rnorm(1000, mean = 50, sd = 10)
+datos_grandes[1:10] <- datos_grandes[1:10] + 5  # Pequeña perturbación
+shapiro.test(datos_grandes)  # Probablemente rechace H0
+# Pero el t-test seguirá siendo válido por el TCL
+```
+
+---
+# Limitaciones del Test de Shapiro
+
+**Problema 2: No es suficiente por sí solo**
+
+- Un p-valor > 0.05 NO garantiza normalidad perfecta
+- Siempre complementar con visualización (Q-Q plot)
+
+**Recomendación**: Shapiro + Q-Q plot + considerar el tamaño muestral (TCL)
+
+---
+# Gráfico Q-Q (Quantile-Quantile)
+
+**¿Qué muestra?**
+
+Compara los cuantiles de nuestros datos vs. los cuantiles teóricos de una distribución normal.
+
+**Interpretación**:
+- **Puntos sobre la línea**: Los datos son aproximadamente normales
+- **Puntos se desvían sistemáticamente**: Desviación de normalidad
+
+```{r, echo=FALSE, fig.height=4}
+par(mfrow = c(1, 3))
+
+# Datos normales
+datos_norm <- rnorm(100, 50, 10)
+qqnorm(datos_norm, main = "Distribución Normal")
+qqline(datos_norm, col = "red", lwd = 2)
+
+# Datos con colas pesadas
+datos_heavy <- rt(100, df = 3) * 10 + 50
+qqnorm(datos_heavy, main = "Colas pesadas")
+qqline(datos_heavy, col = "red", lwd = 2)
+
+# Datos asimétricos
+datos_asim <- rexp(100, rate = 0.1)
+qqnorm(datos_asim, main = "Asimétrico (exponencial)")
+qqline(datos_asim, col = "red", lwd = 2)
+```
+
+---
+# Interpretación de patrones en Q-Q plot
+
+```{r, echo=FALSE, fig.height=5,message=FALSE}
+library(gridExtra)
+
+# Crear diferentes patrones
+set.seed(42)
+
+p1 <- ggplot(data.frame(x = rnorm(200)), aes(sample = x)) +
+  stat_qq() + stat_qq_line(color = "red") +
+  labs(title = "Normal: puntos en la línea") +
+  theme_minimal()
+
+p2 <- ggplot(data.frame(x = rt(200, df = 3)), aes(sample = x)) +
+  stat_qq() + stat_qq_line(color = "red") +
+  labs(title = "Colas pesadas: curva en S") +
+  theme_minimal()
+
+p3 <- ggplot(data.frame(x = rbeta(200, 2, 5)), aes(sample = x)) +
+  stat_qq() + stat_qq_line(color = "red") +
+  labs(title = "Asimetría positiva") +
+  theme_minimal()
+
+p4 <- ggplot(data.frame(x = -rbeta(200, 2, 5)), aes(sample = x)) +
+  stat_qq() + stat_qq_line(color = "red") +
+  labs(title = "Asimetría negativa") +
+  theme_minimal()
+
+grid.arrange(p1, p2, p3, p4, ncol = 2)
+```
+
+---
+# Test contra un valor 
+
+**Test t para una muestra**
+
+Pregunta: ¿El promedio poblacional es igual a un valor específico?
+
+Ejemplo: ¿El salario promedio es $50,000?
+
+```{r}
+salarios <- c(48, 52, 45, 55, 49, 51, 47, 53, 46, 54)
+# H0: μ = 50 (mil pesos) # H1: μ ≠ 50 (test de dos colas)
+resultado <- t.test(salarios, mu = 50)
+print(resultado)
+```
+
+---
+# Test de homogeneidad de varianzas
+
+**¿Por qué importa?**
+
+El t-test clásico (Student) combina las varianzas de ambos grupos en un único error estándar:
+
+$SE_{pooled} = \sqrt{\frac{(n_1-1)s_1^2 + (n_2-1)s_2^2}{n_1+n_2-2} \cdot (\frac{1}{n_1} + \frac{1}{n_2})}$
+
+**Problema**: Esta fórmula asume $s_1^2 \approx s_2^2$
+
+Si las varianzas son MUY diferentes:
+- El error estándar está mal calculado
+- El p-valor es incorrecto (más errores tipo I o menos poder)
+
+---
+# Test de Levene: verifica homogeneidad
+
+**Test de Levene** (más robusto que el F-test):
+
+- $H_0$: Las varianzas son homogéneas (iguales)
+- $H_1$: Las varianzas son diferentes
+
+**¿Cómo funciona?**
+1. Calcula desviaciones absolutas de cada dato respecto a la mediana de su grupo
+2. Aplica ANOVA sobre esas desviaciones
+3. Usa la **mediana** → robusto a outliers (ventaja vs F-test)
+
+---
+# Test de Levene: verifica homogeneidad
+
+
+```{r, message=FALSE}
+library(car)  # Para test de Levene
+
+# Crear dos grupos con varianzas diferentes
+grupo_a <- rnorm(50, mean = 50, sd = 5)   # Varianza pequeña
+grupo_b <- rnorm(50, mean = 52, sd = 15)  # Varianza grande
+
+# Test de Levene
+leveneTest(c(grupo_a, grupo_b) ~ rep(c("A", "B"), each = 50))
+```
+
+---
+# Interpretando Levene y eligiendo el test
+
+**Si p-valor > 0.05** (NO rechazamos $H_0$):
+- ✅ Las varianzas son similares
+- Puedes usar t-test clásico con `var.equal = TRUE` (más poder)
+
+**Si p-valor < 0.05** (Rechazamos $H_0$):
+- ❌ Las varianzas son diferentes
+- **Solución**: Usar corrección de Welch con `var.equal = FALSE`
+
+```{r, eval=FALSE}
+# Test t con corrección de Welch (por defecto en R)
+t.test(grupo_a, grupo_b, var.equal = FALSE)  # <- DEFAULT en R
+
+# Test t clásico (solo si Levene confirma varianzas iguales)
+t.test(grupo_a, grupo_b, var.equal = TRUE)
+```
+
+**Buena noticia**: R usa Welch por defecto
+
+---
+# ¿Qué hace la corrección de Welch?
+
+En lugar de combinar varianzas, calcula errores estándar **separados**:
+
+**T-test clásico** (Student):
+- Un solo $SE$ para ambos grupos → asume $s_1 = s_2$
+
+**T-test con Welch**:
+- $SE$ separado para cada grupo → permite $s_1 \neq s_2$
+- Ajusta los grados de libertad automáticamente
+
+---
+# ¿Qué hace la corrección de Welch?
+
+**Comparación visual**:
+
+```{r, echo=FALSE, fig.height=3.5}
+set.seed(789)
+grupo_a <- rnorm(50, mean = 50, sd = 5)
+grupo_b <- rnorm(50, mean = 52, sd = 15)
+
+datos <- tibble(
+  valor = c(grupo_a, grupo_b),
+  grupo = rep(c("Grupo A (sd=5)", "Grupo B (sd=15)"), each = 50)
+)
+
+ggplot(datos, aes(x = grupo, y = valor, fill = grupo)) +
+  geom_boxplot(alpha = 0.6, outlier.alpha = 0.3) +
+  stat_summary(fun.data = mean_se, geom = "errorbar", 
+               width = 0.2, color = "red", linewidth = 1.2) +
+  labs(title = "Varianzas heterogéneas: ¿por qué Welch?",
+       subtitle = "Las barras rojas muestran SE diferentes por grupo",
+       y = "Valores") +
+  theme_minimal() +
+  theme(legend.position = "none")
+```
+
+---
+# Levene vs F-test: ¿cuál usar?
+
+| Aspecto | Test F (var.test) | Test de Levene |
+|---------|-------------------|----------------|
+| **Supuesto** | Normalidad estricta | Menos exigente |
+| **Outliers** | Muy sensible | Más robusto (usa mediana) |
+| **Uso recomendado** | Solo si datos muy normales | En la mayoría de casos |
+
+```{r, eval=FALSE}
+# Test F (más antiguo, más restrictivo)
+var.test(grupo_a, grupo_b)
+
+# Test de Levene (preferido actualmente)
+leveneTest(c(grupo_a, grupo_b) ~ rep(c("A", "B"), each = 50))
+```
+
+**Regla práctica**:
+1. Siempre verifica homogeneidad cuando compares grupos
+2. Si Levene rechaza $H_0$ → usa Welch (`var.equal = FALSE`)
+3. En R, como Welch es el default, ¡estás protegido automáticamente!
+
+---
+
+--- 
+# Dos muestras independientes 
+
+Pregunta: ¿Hay diferencia entre dos grupos?
+
+Ejemplo: ¿Los hombres ganan más que las mujeres?
+
+```{r,eval=FALSE}
+set.seed(123)
+salarios_hombres <- rnorm(50, mean = 55, sd = 12)
+salarios_mujeres <- rnorm(50, mean = 48, sd = 10)
+# H0: μ_hombres = μ_mujeres (no hay diferencia)
+# H1: μ_hombres > μ_mujeres (test de una cola)
+resultado <- t.test(salarios_hombres, salarios_mujeres, 
+                   alternative = "greater")
+print(resultado) 
+```
+
+---
+# Dos muestras independientes 
+
+```{r,echo=FALSE}
+set.seed(123)
+salarios_hombres <- rnorm(50, mean = 55, sd = 12)
+salarios_mujeres <- rnorm(50, mean = 48, sd = 10)
+# H0: μ_hombres = μ_mujeres (no hay diferencia)
+# H1: μ_hombres > μ_mujeres (test de una cola)
+resultado <- t.test(salarios_hombres, salarios_mujeres, 
+                   alternative = "greater")
+print(resultado) 
+```
+
+---
+# Dos muestras independientes
+
+```{r,echo=F}
+# Datos simulados
+set.seed(123)
+salarios_hombres <- rnorm(50, mean = 55, sd = 12)
+salarios_mujeres <- rnorm(50, mean = 48, sd = 10)
+
+# H0: μ_hombres = μ_mujeres (no hay diferencia)
+# H1: μ_hombres > μ_mujeres (test de una cola)
+
+resultado <- t.test(salarios_hombres, salarios_mujeres, 
+                    alternative = "greater")
+
+# Visualización
+datos_comparacion <- tibble(
+  salario = c(salarios_hombres, salarios_mujeres),
+  genero = rep(c("Hombres", "Mujeres"), each = 50)
+)
+
+ggplot(datos_comparacion, aes(x = genero, y = salario, fill = genero)) +
+  geom_boxplot(alpha = 0.7) +
+  geom_jitter(width = 0.2, alpha = 0.3) +
+  stat_summary(fun = mean, geom = "point", 
+               shape = 23, size = 4, fill = "red") +
+  labs(title = "Comparación de salarios por género",
+       subtitle = paste("p-valor =", round(resultado$p.value, 4)),
+       y = "Salario (miles de pesos)",
+       caption='Código 3 de Codigos en clase') +
+  theme_minimal()
+```
+
+---
+# Wilcoxon: no paramétrica
+
+**¿Cuándo usar Test de Wilcoxon en lugar de t-test?**
+
+1. Los datos NO son normales (y n es pequeño)
+2. Hay outliers extremos
+3. Los datos son ordinales (ej: escalas de Likert)
+
+--
+
+**Diferencias clave con el t-test**:
+
+| Aspecto | Test T | Test de Wilcoxon |
+|---------|--------|------------------|
+| Supuesto | Normalidad | No requiere normalidad |
+| Compara | Medias | Medianas/rangos |
+| Sensible a | Outliers | Más robusto |
+| Poder | Mayor (si supuestos OK) | Menor (pero más seguro) |
+
+---
+# Ejemplo comparativo: T-test vs Wilcoxon
+
+```{r}
+# Datos con outliers extremos
+set.seed(456)
+grupo_control <- c(rnorm(20, mean = 100, sd = 10), 250)  # Un outlier
+grupo_tratamiento <- rnorm(21, mean = 110, sd = 10)
+
+# Test T (sensible a outliers)
+t.test(grupo_tratamiento, grupo_control)$p.value
+
+# Test de Wilcoxon (robusto a outliers)
+wilcox.test(grupo_tratamiento, grupo_control)$p.value
+```
+
+**Interpretación**: 
+- El t-test puede verse afectado por el outlier (250)
+- Wilcoxon se basa en rangos, más robusto
+
+---
+# Visualización: T-test vs Wilcoxon
+
+```{r, echo=FALSE, fig.height=5}
+# Crear datos
+set.seed(456)
+grupo_control <- c(rnorm(20, mean = 100, sd = 10), 250)
+grupo_tratamiento <- rnorm(21, mean = 110, sd = 10)
+
+datos_comp <- tibble(
+  valor = c(grupo_control, grupo_tratamiento),
+  grupo = rep(c("Control", "Tratamiento"), c(21, 21))
+)
+
+p1 <- ggplot(datos_comp, aes(x = grupo, y = valor, fill = grupo)) +
+  geom_boxplot(alpha = 0.6) +
+  geom_jitter(width = 0.2, alpha = 0.5) +
+  stat_summary(fun = mean, geom = "point", shape = 23, 
+               size = 4, fill = "red") +
+  labs(title = "Comparación con outlier",
+       subtitle = "Rombo rojo = media, línea = mediana",
+       y = "Valor") +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+p2 <- ggplot(datos_comp, aes(x = valor, fill = grupo)) +
+  geom_density(alpha = 0.5) +
+  labs(title = "Distribuciones",
+       subtitle = "Nota el outlier en Control") +
+  theme_minimal()
+
+library(gridExtra)
+grid.arrange(p1, p2, ncol = 2)
+```
+
+---
+# Test pareado 
+
+-   **¿Qué es?**
+    -   Una prueba estadística para comparar las medias de dos grupos *relacionados* o *dependientes*.
+    -   Evalúa si la diferencia promedio entre las dos observaciones pareadas es significativamente distinta de cero.
+    -   Los datos provienen de los **mismos sujetos**, medidos en dos momentos o condiciones diferentes.
+
+-   **Aplicaciones comunes**
+    -   **"Antes y Después":** Medir el rendimiento de un grupo de empleados antes y después de un curso de capacitación.
+    -   **Comparación de tratamientos:** Probar la efectividad de una política pública en empresas similares
+
+---
+# Test pareado 
+
+-   **Hipótesis**
+    -   $H_0$: La diferencia media entre los pares es cero. (No hay efecto)
+    -   $H_1$: La diferencia media entre los pares no es cero. (Hay un efecto)
+
+-   **Cómo funciona**
+    1.  Se calculan las diferencias individuales para cada par.
+    2.  Se aplica un t-test sobre estas diferencias.
+
+-   **Conclusión**
+    -   Si el **p-valor < 0.05**:
+        -   El resultado es estadísticamente significativo.
+        -   Se rechaza la hipótesis nula.
+        -   Existe una diferencia real entre las dos mediciones.
+        
+**Ejemplo**: en codigo_4 de Códigos en clase (Clase 15)
+
+---
+# Test pareado de Wilcoxon
+
+Cuando los datos pareados NO son normales, usamos el test de rangos con signo de Wilcoxon:
+
+**Ventaja**: Más apropiado para escalas ordinales o datos con distribuciones asimétricas.
+
+```{r,message=FALSE}
+# Ejemplo: satisfacción antes y después de capacitación (escala 1-10, datos ordinales)
+antes <- c(5, 6, 4, 7, 5, 6, 4, 5, 6, 7)
+despues <- c(7, 8, 6, 8, 7, 7, 5, 6, 8, 9)
+# Test t pareado (asume normalidad)
+t.test(despues, antes, paired = TRUE)$p.value
+# Test de Wilcoxon pareado (no asume normalidad)
+wilcox.test(despues, antes, paired = TRUE)$p.value
+```
+
+---
+# ¿Y la regresión lineal? 
+
+Ya vamos a llegar... 
+
+Nos sirve para potenciar este tipo de test: controlamos por más variables al mismo tiempo para determinar los efectos. 
+
+---
+# Test de proporciones 
+
+Pregunta: ¿Una proporción poblacional es igual a un valor específico?
+
+Ejemplo: ¿El 60% de los consumidores prefieren nuestro producto?
+
+El desvío de este test surge de la hipótesis nula, a diferencia de los anteriores que surgen de la propia muestra. 
+
+Es decir: 
+
+- media muestral: $\overline{p}$
+
+- media poblacional (a testear): $p$
+
+- error estandar de la media (desvio / n):  $\sqrt{\frac{p*(1-p)}{n}}$
+
+¿Por qué usamos p en lugar de $\overline{p}$? Porque el test pregunta: "Si $H_0$ fuera verdadera (p = 0.6) ¿qué tan raro sería observar un $\overline{p} = 0.7$?
+
+Entonces se calcula considerando la variabilidad esperada bajo $H_0$
+
+---
+# Test Chi de Independencia
+
+**Pregunta**: ¿Dos variables categóricas son independientes?
+
+**Ejemplo**: ¿El nivel educativo está relacionado con la preferencia política?
+
+```{r,echo=FALSE}
+# Tabla de contingencia
+tabla <- matrix(c(120, 80, 60,   # Educación baja
+                  100, 110, 90,  # Educación media
+                  70, 130, 140), # Educación alta
+                nrow = 3, byrow = TRUE,
+                dimnames = list(
+                  Educacion = c("Baja", "Media", "Alta"),
+                  Partido = c("A", "B", "C")
+                ))
+
+# print(tabla)
+
+# H0: Las variables son independientes
+# H1: Las variables están relacionadas
+
+resultado <- chisq.test(tabla)
+#print(resultado)
+# Visualización moderna con ggplot
+as.data.frame.table(tabla) %>%
+  ggplot(aes(x = Educacion, y = Freq, fill = Partido)) +
+  geom_col(position = "fill") +
+  scale_y_continuous(labels = scales::percent) +
+  labs(title = "Distribución de preferencia política por educación",
+       y = "Proporción",
+       ) +
+  theme_minimal()
+```
+
+---
+# Test Chi de Independencia
+
+```{r,echo=FALSE}
+# Tabla de contingencia
+tabla <- matrix(c(120, 80, 60,   # Educación baja
+                  100, 110, 90,  # Educación media
+                  70, 130, 140), # Educación alta
+                nrow = 3, byrow = TRUE,
+                dimnames = list(
+                  Educacion = c("Baja", "Media", "Alta"),
+                  Partido = c("A", "B", "C")
+                ))
+
+# print(tabla)
+
+# H0: Las variables son independientes
+# H1: Las variables están relacionadas
+
+resultado <- chisq.test(tabla)
+print(resultado)
+
+```
+
+Rechazamos H0 => las variables están relacionadas 
+
+**Código 5**
+
+---
+# Resumen: ¿Qué test usar?
+
+```{r, echo=FALSE}
+# Crear tabla resumen
+resumen <- tibble(
+  Situacion = c(
+    "1 muestra vs valor (n ≥ 30)",
+    "1 muestra vs valor (n < 30 o NO normal)",
+    "2 muestras independientes (n ≥ 30)",
+    "2 muestras independientes (n < 30 o NO normal)",
+    "2 muestras pareadas (n ≥ 30)",
+    "2 muestras pareadas (n < 30 o NO normal)",
+    "Verificar normalidad (crucial si n < 30)",
+    "Verificar varianzas iguales"
+  ),
+  Test = c(
+    "t.test(x, mu = valor)",
+    "wilcox.test(x, mu = valor)",
+    "t.test(x, y)",
+    "wilcox.test(x, y)",
+    "t.test(x, y, paired = TRUE)",
+    "wilcox.test(x, y, paired = TRUE)",
+    "shapiro.test() + Q-Q plot",
+    "leveneTest() o var.test()"
+  )
+)
+
+knitr::kable(resumen, format = "markdown")
+```
+
+**Regla general**: Con n < 30, verificar supuestos. Con n ≥ 30, el TCL protege al t-test.
+
+---

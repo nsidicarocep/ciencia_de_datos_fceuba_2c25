@@ -97,9 +97,9 @@ datos_retail %>%
   filter(!is.na(valor)) %>%
   ggplot(aes(x = valor, fill = variable)) +
   geom_density(alpha = 0.5) +
-  labs(title = "Distribución Estandarizada (Z-score)",
+  labs(title = "Distribución No Estandarizada",
        subtitle = "Ventas y Costos en la misma escala",
-       x = "Z-score", y = "Densidad") +
+       x = "Valor", y = "Densidad") +
   scale_fill_manual(values = c("blue", "red"),
                     labels = c("Costos", "Ventas"))
 
@@ -127,12 +127,17 @@ datos_retail %>%
 # 3. MIN-MAX SCALING (NORMALIZACIÓN) ####
 
 # Normalizar a rango [0,1]
+minmax_fun <- function(x){
+  (x - min(x,na.rm=T)) / (max(x,na.rm=T)-min(x,na.rm=T))
+}
 datos_retail <- datos_retail %>%
   mutate(
     ventas_minmax = (ventas_nominal - min(ventas_nominal, na.rm = TRUE)) /
       (max(ventas_nominal, na.rm = TRUE) - min(ventas_nominal, na.rm = TRUE)),
     salario_minmax = (salario_promedio - min(salario_promedio)) /
-      (max(salario_promedio) - min(salario_promedio))
+      (max(salario_promedio) - min(salario_promedio)),
+    ventas_minmax_con_f = minmax_fun(ventas_nominal),
+    salario_minmax_con_f = minmax_fun(salario_promedio)
   )
 
 print(head(datos_retail,20))
@@ -235,7 +240,7 @@ cat("\n\n=== 7. TRANSFORMACIÓN LOGARÍTMICA ===\n")
 # Logaritmo de ventas y salarios
 datos_retail <- datos_retail %>%
   mutate(
-    log_ventas = log(ventas_interpolada),
+    log_ventas = log(ventas_nominal),
     log_salario = log(salario_promedio),
     log_costos = log(costos)
   )
@@ -247,8 +252,8 @@ datos_retail <- datos_retail %>%
   mutate(
     tasa_crecimiento_ventas = (log_ventas - lag(log_ventas)) * 100, # En porcentaje
     # Comparar con método directo
-    tasa_crecimiento_directa = ((ventas_interpolada - lag(ventas_interpolada)) /
-                                  lag(ventas_interpolada)) * 100
+    tasa_crecimiento_directa = ((ventas_nominal - lag(ventas_nominal)) /
+                                  lag(ventas_nominal)) * 100
   ) %>%
   ungroup()
 

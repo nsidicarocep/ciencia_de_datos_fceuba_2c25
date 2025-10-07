@@ -1,0 +1,835 @@
+<!DOCTYPE html>
+<html lang="" xml:lang="">
+  <head>
+    <title>Unidad 2: Estadística Basica y Aplicada</title>
+    <meta charset="utf-8" />
+    <meta name="author" content="Nicolas Sidicaro" />
+    <script src="libs/header-attrs-2.27/header-attrs.js"></script>
+    <link href="libs/remark-css-0.0.1/default.css" rel="stylesheet" />
+    <link href="libs/remark-css-0.0.1/metropolis.css" rel="stylesheet" />
+    <link href="libs/remark-css-0.0.1/metropolis-fonts.css" rel="stylesheet" />
+  </head>
+  <body>
+    <textarea id="source">
+class: center, middle, inverse, title-slide
+
+.title[
+# Unidad 2: Estadística Basica y Aplicada
+]
+.subtitle[
+## Inferencia estadistica
+]
+.author[
+### Nicolas Sidicaro
+]
+.date[
+### Octubre 2025
+]
+
+---
+
+
+layout: true
+&lt;div style="position: absolute;left:60px;bottom:11px;color:gray;"&gt;Nicolas Sidicaro - Inferencia estadistica - FCE-UBA&lt;/div&gt;
+
+---
+# El para que 
+
+**Caso**: queremos saber el ingreso promedio de los argentinos. Pero no podemos preguntarle a todos. Entonces tomamos una muestra (EPH)... ¿como llevamos las conclusiones de la muestra a la poblacion?
+
+--
+
+**Con la inferencia estadística**
+
+--
+
+**Conceptos**: población, muestra, parámetro, estadístico
+
+**En el caso**: los trabajadores argentinos; la EPH; el ingreso promedio de la poblacion (`\(\mu\)`); el ingreso promedio de la muestra (`\(\overline{x}\)`)
+
+---
+# ¿Como estudiamos la muestra? 
+
+Tomemos 1000 muestras de nuestra población de tamaño 100. 
+
+1. Cada muestra tendrá un promedio diferente
+
+2. Esos promedios forman una **distribucion muestral**
+
+3. Esta distribucion tiene propiedades predecibles 
+
+--
+
+**¿Gracias a quién?** Al Teorema Central del Límite 
+
+- Para muestras suficientemente grandes `\(\overline{x}\)` es aproximadamente normal
+
+- Con media = `\(\mu\)`
+
+- Con error estandar = `\(\frac{\sigma}{\sqrt{n}}\)`
+
+---
+# Dada una poblacion exponencial
+
+![](15_inferencia_estadistica_files/figure-html/unnamed-chunk-1-1.png)&lt;!-- --&gt;
+
+
+---
+#  Intervalos de Confianza
+
+**¿Qué es un intervalo de confianza?**
+
+**Definición**: Rango de valores plausibles para un parámetro poblacional.
+
+Interpretación correcta (95% de confianza):
+
+- Si repetimos el muestreo infinitas veces, el 95% de los intervalos calculados contendrán el verdadero parámetro
+
+Interpretación INCORRECTA:
+
+✗ "Hay 95% de probabilidad de que μ esté en este intervalo"
+✗ "El 95% de los datos están en este intervalo"
+
+**Fórmula general para desvío conocido**
+
+$$ IC = \overline{x} \pm z*\frac{\sigma}{\sqrt{n}}$$ 
+---
+# Factores que afectan el ancho del IC 
+
+
+``` r
+# Simulación: Impacto del tamaño muestral
+tamaños &lt;- c(10, 30, 100, 500)
+resultados &lt;- map_df(tamaños, function(n) {
+  muestra &lt;- rnorm(n, mean = 50, sd = 15)
+  ic &lt;- t.test(muestra)$conf.int
+  tibble(
+    n = n,
+    ancho_ic = ic[2] - ic[1]
+  )
+})
+
+print(resultados)
+```
+
+```
+## # A tibble: 4 × 2
+##       n ancho_ic
+##   &lt;dbl&gt;    &lt;dbl&gt;
+## 1    10    25.5 
+## 2    30    10.3 
+## 3   100     5.19
+## 4   500     2.54
+```
+
+Conclusión: A mayor n, menor ancho del IC (más precisión).
+
+---
+# Test de hipótesis
+
+**Caso**: Decimos que el salario promedio de Argentina es de 800 mil pesos, pero al tomar una muestra representantiva nos da 700 mil ¿la diferencia es por azar o hay evidencia suficiente para rechazar la afirmación inicial?
+
+**Componentes del test**
+
+1. Hipótesis Nula (H₀): Lo que asumimos verdadero hasta probar lo contrario
+
+2. Hipótesis Alternativa (H₁): Lo que queremos probar
+
+3. Estadístico de prueba: Número que resume la evidencia
+
+4. Nivel de significancia (α): Tolerancia al error (típicamente 0.05)
+
+5. P-valor: Probabilidad de obtener nuestros datos si H₀ es cierta
+
+6. Decisión: Rechazar o no rechazar H₀
+
+---
+
+--- 
+# Tipos de error 
+
+| | `\(H_0\)` es verdadera | `\(H_0\)` es falsa 
+|:--------------:|:--------------:|:--------------:|
+|No rechazamos `\(H_0\)` | Decisión correcta | Error tipo II (`\(\beta\)`)|
+|Rechazamos `\(H_0\)` | Error tipo I (`\(\alpha\)`) | Decisión correcta (Poder) | 
+
+---
+# P-value: interpretación correcta 
+
+**¿Qué es el p-value?**
+
+Probabilidad de observar un estadístico tan extremo (o más) como el observado, asumiendo que `\(H_0\)` es verdadera. 
+
+Es decir, si `\(H_0\)` fuera cierta ¿qué tan raro sería obtener estos datos?
+
+--
+
+**Nos ayuda a decidir sin ver los estadísticos**
+
+- Si `\(p-value &lt; \alpha\)` =&gt; se rechaza `\(H_0\)`
+- Si `\(p-value &gt; \alpha\)` =&gt; No se rechaza `\(H_0\)`
+
+Siendo un `\(\alpha\)` = {0.1,0.05,0.01}
+
+---
+# Visualizacion de p-value 
+
+![](15_inferencia_estadistica_files/figure-html/unnamed-chunk-3-1.png)&lt;!-- --&gt;
+
+---
+# Supuestos de los tests paramétricos
+
+Antes de aplicar tests como el t-test, debemos verificar:
+
+1. **Normalidad**: Los datos (o residuos) siguen una distribución normal
+2. **Homogeneidad de varianzas**: Las varianzas son similares entre grupos
+3. **Independencia**: Las observaciones son independientes
+
+--
+
+**¿Por qué importa?**
+
+- Si se violan estos supuestos, los p-valores pueden ser incorrectos
+- Existen alternativas no paramétricas cuando no se cumplen
+
+**Herramientas para verificar normalidad**:
+- Test de Shapiro-Wilk
+- Gráficos Q-Q
+
+---
+# El rol del TCL
+
+**El Teorema Central del Límite nos protege... pero no siempre**
+
+| Tamaño muestral | ¿Verificar normalidad? | Razón |
+|-----------------|------------------------|-------|
+| **n &lt; 30** | ✅ **SÍ, siempre** | TCL no aplica efectivamente |
+| **30 ≤ n &lt; 100** | ⚠️ **Considerar** | TCL aplica, pero puede ser débil con asimetrías severas |
+| **n ≥ 100** | ✗ **Generalmente NO** | TCL garantiza normalidad de `\(\overline{x}\)` |
+
+--
+
+**Matiz importante**: 
+
+- El t-test evalúa la **media muestral** (`\(\overline{x}\)`), no los datos individuales
+- Con n grande, `\(\overline{x}\)` es normal **incluso si los datos no lo son** (gracias al TCL)
+- Con n pequeño, necesitamos que los **datos originales** sean aproximadamente normales
+
+---
+# Test de Shapiro-Wilk
+
+**¿Qué evalúa?**
+
+Contrasta si una muestra proviene de una distribución normal.
+
+- `\(H_0\)`: Los datos provienen de una distribución normal
+- `\(H_1\)`: Los datos NO provienen de una distribución normal
+
+**¿Cuándo es realmente necesario?**
+- **Crucial** para muestras pequeñas (n &lt; 30)
+- **Opcional** para muestras medianas (30-100)
+- **Menos relevante** para muestras grandes (n &gt; 100) por el TCL
+
+---
+# Test de Shapiro-Wilk
+
+
+``` r
+# Datos que parecen normales
+datos_normales &lt;- rnorm(50, mean = 100, sd = 15)
+shapiro.test(datos_normales)
+```
+
+```
+## 
+## 	Shapiro-Wilk normality test
+## 
+## data:  datos_normales
+## W = 0.98903, p-value = 0.9209
+```
+
+``` r
+# Datos claramente NO normales (exponencial)
+datos_exponencial &lt;- rexp(50, rate = 0.1)
+shapiro.test(datos_exponencial)
+```
+
+```
+## 
+## 	Shapiro-Wilk normality test
+## 
+## data:  datos_exponencial
+## W = 0.91511, p-value = 0.001577
+```
+
+---
+# Limitaciones del Test de Shapiro
+
+**Problema 1: Sensible al tamaño muestral**
+
+- Con **muestras pequeñas** (n &lt; 30): Poco poder, puede no detectar desviaciones importantes
+- Con **muestras grandes** (n &gt; 200): Demasiado sensible, rechaza H₀ por desviaciones triviales que **no afectan** al t-test (el TCL ya protege)
+
+
+``` r
+# Muestra grande de datos casi normales
+set.seed(123)
+datos_grandes &lt;- rnorm(1000, mean = 50, sd = 10)
+datos_grandes[1:10] &lt;- datos_grandes[1:10] + 5  # Pequeña perturbación
+shapiro.test(datos_grandes)  # Probablemente rechace H0
+# Pero el t-test seguirá siendo válido por el TCL
+```
+
+---
+# Limitaciones del Test de Shapiro
+
+**Problema 2: No es suficiente por sí solo**
+
+- Un p-valor &gt; 0.05 NO garantiza normalidad perfecta
+- Siempre complementar con visualización (Q-Q plot)
+
+**Recomendación**: Shapiro + Q-Q plot + considerar el tamaño muestral (TCL)
+
+---
+# Gráfico Q-Q (Quantile-Quantile)
+
+**¿Qué muestra?**
+
+Compara los cuantiles de nuestros datos vs. los cuantiles teóricos de una distribución normal.
+
+**Interpretación**:
+- **Puntos sobre la línea**: Los datos son aproximadamente normales
+- **Puntos se desvían sistemáticamente**: Desviación de normalidad
+
+![](15_inferencia_estadistica_files/figure-html/unnamed-chunk-6-1.png)&lt;!-- --&gt;
+
+---
+# Interpretación de patrones en Q-Q plot
+
+![](15_inferencia_estadistica_files/figure-html/unnamed-chunk-7-1.png)&lt;!-- --&gt;
+
+---
+# Test contra un valor 
+
+**Test t para una muestra**
+
+Pregunta: ¿El promedio poblacional es igual a un valor específico?
+
+Ejemplo: ¿El salario promedio es $50,000?
+
+
+``` r
+salarios &lt;- c(48, 52, 45, 55, 49, 51, 47, 53, 46, 54)
+# H0: μ = 50 (mil pesos) # H1: μ ≠ 50 (test de dos colas)
+resultado &lt;- t.test(salarios, mu = 50)
+print(resultado)
+```
+
+```
+## 
+## 	One Sample t-test
+## 
+## data:  salarios
+## t = 0, df = 9, p-value = 1
+## alternative hypothesis: true mean is not equal to 50
+## 95 percent confidence interval:
+##  47.49909 52.50091
+## sample estimates:
+## mean of x 
+##        50
+```
+
+---
+# Test de homogeneidad de varianzas
+
+**¿Por qué importa?**
+
+El t-test clásico (Student) combina las varianzas de ambos grupos en un único error estándar:
+
+`\(SE_{pooled} = \sqrt{\frac{(n_1-1)s_1^2 + (n_2-1)s_2^2}{n_1+n_2-2} \cdot (\frac{1}{n_1} + \frac{1}{n_2})}\)`
+
+**Problema**: Esta fórmula asume `\(s_1^2 \approx s_2^2\)`
+
+Si las varianzas son MUY diferentes:
+- El error estándar está mal calculado
+- El p-valor es incorrecto (más errores tipo I o menos poder)
+
+---
+# Test de Levene: verifica homogeneidad
+
+**Test de Levene** (más robusto que el F-test):
+
+- `\(H_0\)`: Las varianzas son homogéneas (iguales)
+- `\(H_1\)`: Las varianzas son diferentes
+
+**¿Cómo funciona?**
+1. Calcula desviaciones absolutas de cada dato respecto a la mediana de su grupo
+2. Aplica ANOVA sobre esas desviaciones
+3. Usa la **mediana** → robusto a outliers (ventaja vs F-test)
+
+---
+# Test de Levene: verifica homogeneidad
+
+
+
+``` r
+library(car)  # Para test de Levene
+
+# Crear dos grupos con varianzas diferentes
+grupo_a &lt;- rnorm(50, mean = 50, sd = 5)   # Varianza pequeña
+grupo_b &lt;- rnorm(50, mean = 52, sd = 15)  # Varianza grande
+
+# Test de Levene
+leveneTest(c(grupo_a, grupo_b) ~ rep(c("A", "B"), each = 50))
+```
+
+```
+## Warning in leveneTest.default(y = y, group = group, ...): group coerced to
+## factor.
+```
+
+```
+## Levene's Test for Homogeneity of Variance (center = median)
+##       Df F value    Pr(&gt;F)    
+## group  1    33.6 8.247e-08 ***
+##       98                      
+## ---
+## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+```
+
+---
+# Interpretando Levene y eligiendo el test
+
+**Si p-valor &gt; 0.05** (NO rechazamos `\(H_0\)`):
+- ✅ Las varianzas son similares
+- Puedes usar t-test clásico con `var.equal = TRUE` (más poder)
+
+**Si p-valor &lt; 0.05** (Rechazamos `\(H_0\)`):
+- ❌ Las varianzas son diferentes
+- **Solución**: Usar corrección de Welch con `var.equal = FALSE`
+
+
+``` r
+# Test t con corrección de Welch (por defecto en R)
+t.test(grupo_a, grupo_b, var.equal = FALSE)  # &lt;- DEFAULT en R
+
+# Test t clásico (solo si Levene confirma varianzas iguales)
+t.test(grupo_a, grupo_b, var.equal = TRUE)
+```
+
+**Buena noticia**: R usa Welch por defecto
+
+---
+# ¿Qué hace la corrección de Welch?
+
+En lugar de combinar varianzas, calcula errores estándar **separados**:
+
+**T-test clásico** (Student):
+- Un solo `\(SE\)` para ambos grupos → asume `\(s_1 = s_2\)`
+
+**T-test con Welch**:
+- `\(SE\)` separado para cada grupo → permite `\(s_1 \neq s_2\)`
+- Ajusta los grados de libertad automáticamente
+
+---
+# ¿Qué hace la corrección de Welch?
+
+**Comparación visual**:
+
+![](15_inferencia_estadistica_files/figure-html/unnamed-chunk-11-1.png)&lt;!-- --&gt;
+
+---
+# Levene vs F-test: ¿cuál usar?
+
+| Aspecto | Test F (var.test) | Test de Levene |
+|---------|-------------------|----------------|
+| **Supuesto** | Normalidad estricta | Menos exigente |
+| **Outliers** | Muy sensible | Más robusto (usa mediana) |
+| **Uso recomendado** | Solo si datos muy normales | En la mayoría de casos |
+
+
+``` r
+# Test F (más antiguo, más restrictivo)
+var.test(grupo_a, grupo_b)
+
+# Test de Levene (preferido actualmente)
+leveneTest(c(grupo_a, grupo_b) ~ rep(c("A", "B"), each = 50))
+```
+
+**Regla práctica**:
+1. Siempre verifica homogeneidad cuando compares grupos
+2. Si Levene rechaza `\(H_0\)` → usa Welch (`var.equal = FALSE`)
+3. En R, como Welch es el default, ¡estás protegido automáticamente!
+
+---
+
+--- 
+# Dos muestras independientes 
+
+Pregunta: ¿Hay diferencia entre dos grupos?
+
+Ejemplo: ¿Los hombres ganan más que las mujeres?
+
+
+``` r
+set.seed(123)
+salarios_hombres &lt;- rnorm(50, mean = 55, sd = 12)
+salarios_mujeres &lt;- rnorm(50, mean = 48, sd = 10)
+# H0: μ_hombres = μ_mujeres (no hay diferencia)
+# H1: μ_hombres &gt; μ_mujeres (test de una cola)
+resultado &lt;- t.test(salarios_hombres, salarios_mujeres, 
+                   alternative = "greater")
+print(resultado) 
+```
+
+---
+# Dos muestras independientes 
+
+
+```
+## 
+## 	Welch Two Sample t-test
+## 
+## data:  salarios_hombres and salarios_mujeres
+## t = 2.9348, df = 94.165, p-value = 0.002096
+## alternative hypothesis: true difference in means is greater than 0
+## 95 percent confidence interval:
+##  2.581605      Inf
+## sample estimates:
+## mean of x mean of y 
+##  55.41284  49.46408
+```
+
+---
+# Dos muestras independientes
+
+![](15_inferencia_estadistica_files/figure-html/unnamed-chunk-15-1.png)&lt;!-- --&gt;
+
+---
+# Wilcoxon: no paramétrica
+
+**¿Cuándo usar Test de Wilcoxon en lugar de t-test?**
+
+1. Los datos NO son normales (y n es pequeño)
+2. Hay outliers extremos
+3. Los datos son ordinales (ej: escalas de Likert)
+
+--
+
+**Diferencias clave con el t-test**:
+
+| Aspecto | Test T | Test de Wilcoxon |
+|---------|--------|------------------|
+| Supuesto | Normalidad | No requiere normalidad |
+| Compara | Medias | Medianas/rangos |
+| Sensible a | Outliers | Más robusto |
+| Poder | Mayor (si supuestos OK) | Menor (pero más seguro) |
+
+---
+# Ejemplo comparativo: T-test vs Wilcoxon
+
+
+``` r
+# Datos con outliers extremos
+set.seed(456)
+grupo_control &lt;- c(rnorm(20, mean = 100, sd = 10), 250)  # Un outlier
+grupo_tratamiento &lt;- rnorm(21, mean = 110, sd = 10)
+
+# Test T (sensible a outliers)
+t.test(grupo_tratamiento, grupo_control)$p.value
+```
+
+```
+## [1] 0.6004376
+```
+
+``` r
+# Test de Wilcoxon (robusto a outliers)
+wilcox.test(grupo_tratamiento, grupo_control)$p.value
+```
+
+```
+## [1] 0.9207121
+```
+
+**Interpretación**: 
+- El t-test puede verse afectado por el outlier (250)
+- Wilcoxon se basa en rangos, más robusto
+
+---
+# Visualización: T-test vs Wilcoxon
+
+![](15_inferencia_estadistica_files/figure-html/unnamed-chunk-17-1.png)&lt;!-- --&gt;
+
+---
+# Test pareado 
+
+-   **¿Qué es?**
+    -   Una prueba estadística para comparar las medias de dos grupos *relacionados* o *dependientes*.
+    -   Evalúa si la diferencia promedio entre las dos observaciones pareadas es significativamente distinta de cero.
+    -   Los datos provienen de los **mismos sujetos**, medidos en dos momentos o condiciones diferentes.
+
+-   **Aplicaciones comunes**
+    -   **"Antes y Después":** Medir el rendimiento de un grupo de empleados antes y después de un curso de capacitación.
+    -   **Comparación de tratamientos:** Probar la efectividad de una política pública en empresas similares
+
+---
+# Test pareado 
+
+-   **Hipótesis**
+    -   `\(H_0\)`: La diferencia media entre los pares es cero. (No hay efecto)
+    -   `\(H_1\)`: La diferencia media entre los pares no es cero. (Hay un efecto)
+
+-   **Cómo funciona**
+    1.  Se calculan las diferencias individuales para cada par.
+    2.  Se aplica un t-test sobre estas diferencias.
+
+-   **Conclusión**
+    -   Si el **p-valor &lt; 0.05**:
+        -   El resultado es estadísticamente significativo.
+        -   Se rechaza la hipótesis nula.
+        -   Existe una diferencia real entre las dos mediciones.
+        
+**Ejemplo**: en codigo_4 de Códigos en clase (Clase 15)
+
+---
+# Test pareado de Wilcoxon
+
+Cuando los datos pareados NO son normales, usamos el test de rangos con signo de Wilcoxon:
+
+**Ventaja**: Más apropiado para escalas ordinales o datos con distribuciones asimétricas.
+
+
+``` r
+# Ejemplo: satisfacción antes y después de capacitación (escala 1-10, datos ordinales)
+antes &lt;- c(5, 6, 4, 7, 5, 6, 4, 5, 6, 7)
+despues &lt;- c(7, 8, 6, 8, 7, 7, 5, 6, 8, 9)
+# Test t pareado (asume normalidad)
+t.test(despues, antes, paired = TRUE)$p.value
+```
+
+```
+## [1] 4.239739e-06
+```
+
+``` r
+# Test de Wilcoxon pareado (no asume normalidad)
+wilcox.test(despues, antes, paired = TRUE)$p.value
+```
+
+```
+## Warning in wilcox.test.default(despues, antes, paired = TRUE): cannot compute
+## exact p-value with ties
+```
+
+```
+## [1] 0.004565114
+```
+
+---
+# ¿Y la regresión lineal? 
+
+Ya vamos a llegar... 
+
+Nos sirve para potenciar este tipo de test: controlamos por más variables al mismo tiempo para determinar los efectos. 
+
+---
+# Test de proporciones 
+
+Pregunta: ¿Una proporción poblacional es igual a un valor específico?
+
+Ejemplo: ¿El 60% de los consumidores prefieren nuestro producto?
+
+El desvío de este test surge de la hipótesis nula, a diferencia de los anteriores que surgen de la propia muestra. 
+
+Es decir: 
+
+- media muestral: `\(\overline{p}\)`
+
+- media poblacional (a testear): `\(p\)`
+
+- error estandar de la media (desvio / n):  `\(\sqrt{\frac{p*(1-p)}{n}}\)`
+
+¿Por qué usamos p en lugar de `\(\overline{p}\)`? Porque el test pregunta: "Si `\(H_0\)` fuera verdadera (p = 0.6) ¿qué tan raro sería observar un `\(\overline{p} = 0.7\)`?
+
+Entonces se calcula considerando la variabilidad esperada bajo `\(H_0\)`
+
+---
+# Test Chi de Independencia
+
+**Pregunta**: ¿Dos variables categóricas son independientes?
+
+**Ejemplo**: ¿El nivel educativo está relacionado con la preferencia política?
+
+![](15_inferencia_estadistica_files/figure-html/unnamed-chunk-19-1.png)&lt;!-- --&gt;
+
+---
+# Test Chi de Independencia
+
+
+```
+## 
+## 	Pearson's Chi-squared test
+## 
+## data:  tabla
+## X-squared = 48.192, df = 4, p-value = 8.605e-10
+```
+
+Rechazamos H0 =&gt; las variables están relacionadas 
+
+**Código 5**
+
+---
+# Resumen: ¿Qué test usar?
+
+
+|Situacion                                      |Test                             |
+|:----------------------------------------------|:--------------------------------|
+|1 muestra vs valor (n ≥ 30)                    |t.test(x, mu = valor)            |
+|1 muestra vs valor (n &lt; 30 o NO normal)        |wilcox.test(x, mu = valor)       |
+|2 muestras independientes (n ≥ 30)             |t.test(x, y)                     |
+|2 muestras independientes (n &lt; 30 o NO normal) |wilcox.test(x, y)                |
+|2 muestras pareadas (n ≥ 30)                   |t.test(x, y, paired = TRUE)      |
+|2 muestras pareadas (n &lt; 30 o NO normal)       |wilcox.test(x, y, paired = TRUE) |
+|Verificar normalidad (crucial si n &lt; 30)       |shapiro.test() + Q-Q plot        |
+|Verificar varianzas iguales                    |leveneTest() o var.test()        |
+
+**Regla general**: Con n &lt; 30, verificar supuestos. Con n ≥ 30, el TCL protege al t-test.
+
+---
+    </textarea>
+<style data-target="print-only">@media screen {.remark-slide-container{display:block;}.remark-slide-scaler{box-shadow:none;}}</style>
+<script src="https://remarkjs.com/downloads/remark-latest.min.js"></script>
+<script>var slideshow = remark.create({
+  "highlightStyle": "github",
+  "highlightLines": true,
+  "countIncrementalSlides": false
+});
+if (window.HTMLWidgets) slideshow.on('afterShowSlide', function (slide) {
+  window.dispatchEvent(new Event('resize'));
+});
+(function(d) {
+  var s = d.createElement("style"), r = d.querySelector(".remark-slide-scaler");
+  if (!r) return;
+  s.type = "text/css"; s.innerHTML = "@page {size: " + r.style.width + " " + r.style.height +"; }";
+  d.head.appendChild(s);
+})(document);
+
+(function(d) {
+  var el = d.getElementsByClassName("remark-slides-area");
+  if (!el) return;
+  var slide, slides = slideshow.getSlides(), els = el[0].children;
+  for (var i = 1; i < slides.length; i++) {
+    slide = slides[i];
+    if (slide.properties.continued === "true" || slide.properties.count === "false") {
+      els[i - 1].className += ' has-continuation';
+    }
+  }
+  var s = d.createElement("style");
+  s.type = "text/css"; s.innerHTML = "@media print { .has-continuation { display: none; } }";
+  d.head.appendChild(s);
+})(document);
+// delete the temporary CSS (for displaying all slides initially) when the user
+// starts to view slides
+(function() {
+  var deleted = false;
+  slideshow.on('beforeShowSlide', function(slide) {
+    if (deleted) return;
+    var sheets = document.styleSheets, node;
+    for (var i = 0; i < sheets.length; i++) {
+      node = sheets[i].ownerNode;
+      if (node.dataset["target"] !== "print-only") continue;
+      node.parentNode.removeChild(node);
+    }
+    deleted = true;
+  });
+})();
+// add `data-at-shortcutkeys` attribute to <body> to resolve conflicts with JAWS
+// screen reader (see PR #262)
+(function(d) {
+  let res = {};
+  d.querySelectorAll('.remark-help-content table tr').forEach(tr => {
+    const t = tr.querySelector('td:nth-child(2)').innerText;
+    tr.querySelectorAll('td:first-child .key').forEach(key => {
+      const k = key.innerText;
+      if (/^[a-z]$/.test(k)) res[k] = t;  // must be a single letter (key)
+    });
+  });
+  d.body.setAttribute('data-at-shortcutkeys', JSON.stringify(res));
+})(document);
+(function() {
+  "use strict"
+  // Replace <script> tags in slides area to make them executable
+  var scripts = document.querySelectorAll(
+    '.remark-slides-area .remark-slide-container script'
+  );
+  if (!scripts.length) return;
+  for (var i = 0; i < scripts.length; i++) {
+    var s = document.createElement('script');
+    var code = document.createTextNode(scripts[i].textContent);
+    s.appendChild(code);
+    var scriptAttrs = scripts[i].attributes;
+    for (var j = 0; j < scriptAttrs.length; j++) {
+      s.setAttribute(scriptAttrs[j].name, scriptAttrs[j].value);
+    }
+    scripts[i].parentElement.replaceChild(s, scripts[i]);
+  }
+})();
+(function() {
+  var links = document.getElementsByTagName('a');
+  for (var i = 0; i < links.length; i++) {
+    if (/^(https?:)?\/\//.test(links[i].getAttribute('href'))) {
+      links[i].target = '_blank';
+    }
+  }
+})();
+// adds .remark-code-has-line-highlighted class to <pre> parent elements
+// of code chunks containing highlighted lines with class .remark-code-line-highlighted
+(function(d) {
+  const hlines = d.querySelectorAll('.remark-code-line-highlighted');
+  const preParents = [];
+  const findPreParent = function(line, p = 0) {
+    if (p > 1) return null; // traverse up no further than grandparent
+    const el = line.parentElement;
+    return el.tagName === "PRE" ? el : findPreParent(el, ++p);
+  };
+
+  for (let line of hlines) {
+    let pre = findPreParent(line);
+    if (pre && !preParents.includes(pre)) preParents.push(pre);
+  }
+  preParents.forEach(p => p.classList.add("remark-code-has-line-highlighted"));
+})(document);</script>
+
+<script>
+slideshow._releaseMath = function(el) {
+  var i, text, code, codes = el.getElementsByTagName('code');
+  for (i = 0; i < codes.length;) {
+    code = codes[i];
+    if (code.parentNode.tagName !== 'PRE' && code.childElementCount === 0) {
+      text = code.textContent;
+      if (/^\\\((.|\s)+\\\)$/.test(text) || /^\\\[(.|\s)+\\\]$/.test(text) ||
+          /^\$\$(.|\s)+\$\$$/.test(text) ||
+          /^\\begin\{([^}]+)\}(.|\s)+\\end\{[^}]+\}$/.test(text)) {
+        code.outerHTML = code.innerHTML;  // remove <code></code>
+        continue;
+      }
+    }
+    i++;
+  }
+};
+slideshow._releaseMath(document);
+</script>
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+(function () {
+  var script = document.createElement('script');
+  script.type = 'text/javascript';
+  script.src  = 'https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-MML-AM_CHTML';
+  if (location.protocol !== 'file:' && /^https?:/.test(script.src))
+    script.src  = script.src.replace(/^https?:/, '');
+  document.getElementsByTagName('head')[0].appendChild(script);
+})();
+</script>
+  </body>
+</html>
