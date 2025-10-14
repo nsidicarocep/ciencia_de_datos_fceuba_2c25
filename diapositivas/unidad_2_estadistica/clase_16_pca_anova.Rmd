@@ -1,0 +1,802 @@
+---
+title: "ANOVA y Análisis de Componentes Principales"
+subtitle: "Unidad 2: Estadística Básica y Aplicada"
+author: "Nicolás Sidicaro"
+date: "Octubre 2025"
+institution: "FCE-UBA"
+output:
+  xaringan::moon_reader:
+    css: [default, metropolis, metropolis-fonts]
+    lib_dir: libs
+    nature:
+      highlightStyle: github
+      highlightLines: true
+      countIncrementalSlides: false
+      ratio: "16:9"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE,
+  message = FALSE,
+  warning = FALSE,
+  fig.width = 10,
+  fig.height = 5,
+  fig.retina = 3,
+  cache = FALSE
+)
+
+# Cargar librerías
+library(tidyverse)
+library(car)
+library(emmeans)
+library(kableExtra)
+library(patchwork)
+library(ggpubr)
+library(broom)
+library(psych)
+library(corrplot)
+
+theme_set(theme_minimal(base_size = 14))
+set.seed(123)
+```
+
+class: inverse, center, middle
+
+# Parte 1: ANOVA
+## Analysis of Variance
+
+---
+
+# Motivación: El problema de las comparaciones múltiples
+
+**Situación**: Queremos comparar salarios entre 5 industrias diferentes.
+
+**Opción ingenua**: Hacer múltiples t-tests
+
+- Industria A vs B
+- Industria A vs C
+- Industria B vs C
+- ... (10 comparaciones en total)
+
+--
+
+**Problema**: Con cada test hay 5% de probabilidad de error tipo I
+
+$$P(\text{al menos un error}) = 1 - (0.95)^{10} = 0.40$$
+
+Con 10 tests, hay **40% de probabilidad** de encontrar al menos una diferencia falsa.
+
+---
+
+# ANOVA: La solución
+
+**Análisis de Varianza (ANOVA)** resuelve este problema con un **único test omnibus**:
+
+- $H_0$: Todas las medias grupales son iguales ($\mu_1 = \mu_2 = ... = \mu_k$)
+- $H_1$: Al menos una media es diferente
+
+--
+
+**Ventajas**:
+
+- Controla el error tipo I familiar-wise
+- Un solo p-valor para la pregunta global
+- Descompone la varianza total en componentes interpretables
+
+--
+
+**¿Cuándo usar ANOVA?**
+
+- Comparar 3+ grupos en una variable continua
+- Diseño experimental con múltiples tratamientos
+- Datos que cumplen supuestos paramétricos
+
+---
+
+# La lógica de ANOVA
+
+ANOVA descompone la **varianza total** en dos fuentes:
+
+$$SS_{Total} = SS_{Between} + SS_{Within}$$
+
+**Varianza Between-groups** ($SS_B$):
+- ¿Qué tan diferentes son las medias grupales?
+- Atribuible al factor de interés
+
+**Varianza Within-groups** ($SS_W$):
+- ¿Qué tan variables son los datos dentro de cada grupo?
+- Error aleatorio, variabilidad natural
+
+--
+
+**Estadístico F**: Compara ambas fuentes
+
+$$F = \frac{MS_{Between}}{MS_{Within}} = \frac{SS_B/(k-1)}{SS_W/(n-k)}$$
+
+Si $F$ es grande → la variación entre grupos es mucho mayor que dentro de grupos → evidencia contra $H_0$
+
+---
+
+# Generación de datos: Salarios por sector
+
+```{r create-data, echo=TRUE}
+salarios <- tibble(
+  sector = rep(c("Finanzas", "Tecnología", "Educación", "Salud", "Manufactura"), 
+               each = 30),
+  salario = c(
+    rnorm(30, mean = 85, sd = 15),  # Finanzas
+    rnorm(30, mean = 75, sd = 12),  # Tecnología
+    rnorm(30, mean = 45, sd = 8),   # Educación
+    rnorm(30, mean = 55, sd = 10),  # Salud
+    rnorm(30, mean = 50, sd = 9)    # Manufactura
+  )
+)
+```
+
+```{r summary-table, echo=FALSE}
+salarios %>%
+  group_by(sector) %>%
+  summarise(n = n(), media = round(mean(salario), 1), sd = round(sd(salario), 1)) %>%
+  kable(format = "html", col.names = c("Sector", "N", "Media", "SD"))
+```
+
+---
+
+# Visualización de los datos
+
+```{r salary-viz, echo=FALSE, fig.height=5.5}
+ggplot(salarios, aes(x = sector, y = salario, fill = sector)) +
+  geom_boxplot(alpha = 0.6) +
+  geom_jitter(width = 0.2, alpha = 0.3, size = 1) +
+  stat_summary(fun = mean, geom = "point", shape = 23, size = 4, fill = "red") +
+  labs(title = "Distribución de salarios por sector",
+       subtitle = "Rombo rojo = media grupal",
+       y = "Salario (miles de pesos)", x = "Sector") +
+  theme_minimal(base_size = 14) +
+  theme(legend.position = "none", axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+---
+
+# ANOVA en R: Implementación
+
+```{r anova-impl, echo=TRUE}
+# ANOVA de un factor
+modelo_anova <- aov(salario ~ sector, data = salarios)
+summary(modelo_anova)
+```
+
+--
+
+**Interpretación**:
+
+- Si $F value < \alpha$ → Rechazamos $H_0$
+- Al menos un sector tiene salario promedio diferente
+- El sector explica una parte significativa de la variabilidad salarial
+
+---
+
+# Post-hoc: ¿Qué grupos difieren?
+
+ANOVA solo responde "hay diferencias", no indica **cuáles**.
+
+**Solución**: Comparaciones post-hoc con corrección por comparaciones múltiples.
+
+```{r posthoc, echo=TRUE}
+# Test de Tukey (controla error familiar-wise)
+comparaciones <- emmeans(modelo_anova, pairwise ~ sector, adjust = "tukey")
+```
+
+```{r posthoc-table, echo=FALSE}
+summary(comparaciones$contrasts) %>%
+  as.data.frame() %>%
+  select(contrast, estimate, p.value) %>%
+  mutate(estimate = round(estimate, 2), p.value = round(p.value, 4),
+         significativo = ifelse(p.value < 0.05, "***", "")) %>%
+  head(8) %>%
+  kable(format = "html", col.names = c("Comparación", "Diferencia", "p-valor", "Sig."))
+```
+
+**Interpretación**: Finanzas difiere significativamente de todos los sectores. Tecnología difiere de Educación, pero no de Salud ni Manufactura.
+
+---
+
+# ANOVA vs Regresión: Son equivalentes
+
+```{r anova-regression, echo=TRUE}
+# Opción 1: ANOVA
+modelo_anova <- aov(salario ~ sector, data = salarios)
+# Opción 2: Regresión con dummies (EQUIVALENTE)
+modelo_regresion <- lm(salario ~ factor(sector), data = salarios)
+
+```
+
+---
+
+.pull-left[
+```{r,echo=FALSE,message=FALSE}
+anova(modelo_regresion)
+```
+]
+
+.pull-left[
+```{r,echo=FALSE,message=FALSE}
+summary(modelo_regresion)
+```
+]
+
+---
+
+# ¿Entonces por qué usar ANOVA?
+
+1. **Framework conceptual**: Pensar en "grupos" vs "predictores"
+
+2. **Diseño experimental**: Lenguaje natural para A/B/C/D testing
+
+3. **Post-hoc integrado**: Tukey, Bonferroni ya implementados
+
+4. **Más fácil y rápido**: Directamente devuelve si hay diferencias o no las hay, sin depender de cuál es la categoría base.
+
+---
+
+# Two-Way ANOVA: Interacciones
+
+**Pregunta**: ¿La brecha salarial de género varía por sector?
+
+```{r twoway-data, echo=FALSE}
+set.seed(456)
+salarios_genero <- tibble(
+  sector = rep(c("Finanzas", "Tecnología", "Educación"), each = 40),
+  genero = rep(rep(c("Hombre", "Mujer"), each = 20), 3),
+  salario = c(
+    rnorm(20, mean = 90, sd = 12), rnorm(20, mean = 70, sd = 12),
+    rnorm(20, mean = 78, sd = 10), rnorm(20, mean = 68, sd = 10),
+    rnorm(20, mean = 48, sd = 8), rnorm(20, mean = 45, sd = 8)
+  )
+)
+```
+
+```{r interaction-plot, echo=FALSE, fig.height=4.5}
+ggplot(salarios_genero, aes(x = sector, y = salario, color = genero, group = genero)) +
+  stat_summary(fun = mean, geom = "point", size = 4) +
+  stat_summary(fun = mean, geom = "line", linewidth = 1.2) +
+  stat_summary(fun.data = mean_se, geom = "errorbar", width = 0.2) +
+  labs(title = "Interacción: Género × Sector",
+       subtitle = "La brecha varía por sector (líneas NO paralelas)",
+       y = "Salario promedio (miles)", x = "Sector", color = "Género") +
+  theme_minimal(base_size = 14) +
+  scale_color_manual(values = c("#2196F3", "#E91E63"))
+```
+
+---
+
+# Two-Way ANOVA en R
+
+```{r twoway-anova, echo=TRUE}
+# ANOVA con dos factores e interacción
+modelo_2way <- aov(salario ~ genero * sector, data = salarios_genero)
+summary(modelo_2way)
+```
+
+**Interpretación**:
+
+- **genero**: Efecto principal significativo (brecha promedio existe)
+- **sector**: Efecto principal significativo (sectores difieren)
+- **genero:sector**: Interacción significativa (la brecha **varía** por sector)
+
+---
+
+# Supuestos de ANOVA
+
+ANOVA requiere verificar tres supuestos:
+
+1. **Independencia**: Las observaciones son independientes
+   - Crítico, violación grave
+   - Verificar por diseño del estudio
+
+2. **Normalidad**: Los residuos siguen distribución normal
+   - Test de Shapiro-Wilk, Q-Q plots
+   - Robusto con $n$ grande (TCL)
+
+3. **Homogeneidad de varianzas**: Varianzas iguales entre grupos
+   - Test de Levene
+   - Si se viola: Welch ANOVA
+
+---
+
+# Verificación de supuestos en R
+
+```{r diagnostics, echo=FALSE, fig.height=5.5}
+par(mfrow = c(2, 2))
+plot(modelo_anova)
+```
+
+---
+
+# Test de Levene: Homogeneidad de varianzas
+
+```{r levene, echo=TRUE}
+# Test de Levene
+leveneTest(salario ~ sector, data = salarios)
+```
+
+**Interpretación**:
+
+- Si $p > 0.05$ → No rechazamos $H_0$
+- Las varianzas son homogéneas
+- ANOVA estándar es apropiado
+
+--
+
+**Si se violara** ($p < 0.05$): Usar `oneway.test()` con corrección de Welch
+
+```{r welch, echo=TRUE, eval=FALSE}
+# Alternativa robusta a heterogeneidad
+oneway.test(salario ~ sector, data = salarios, var.equal = FALSE)
+```
+
+---
+
+# Alternativa no paramétrica: Kruskal-Wallis
+
+**ANOVA no paramétrico**: Test de Kruskal-Wallis
+
+```{r kruskal, echo=TRUE}
+# Alternativa cuando normalidad no se cumple
+kruskal.test(salario ~ sector, data = salarios)
+```
+
+Basado en rangos, no asume normalidad.
+
+---
+
+# Resumen: ANOVA
+
+**Usar ANOVA cuando**:
+
+- Comparar 3+ grupos
+- Diseño experimental (A/B/C/D testing)
+- Se quieren descomponer las varianza explícitamente
+- Necesitas comparaciones post-hoc con control de error (ej. para ver qué grupos difieren entre sí)
+
+--
+
+**Pasar a regresión cuando**:
+
+- Predictores continuos
+- Modelos complejos con muchas variables
+- Necesitas regularización o ML
+
+--
+
+**Recordar**:
+
+- ANOVA = regresión con dummies
+- Verificar supuestos (especialmente con $n < 30$)
+- Post-hoc con corrección (Tukey, Bonferroni)
+
+---
+
+class: inverse, center, middle
+
+# Parte 2: PCA
+## Principal Component Analysis
+
+---
+
+# Motivación: La maldición de la dimensionalidad
+
+**Problema frecuente en economía**:
+
+Datos de 30 países con 20 indicadores económicos:
+
+- PIB per cápita, inflación, desempleo, Gini, esperanza de vida...
+- Variables correlacionadas entre sí
+- Difícil visualizar, interpretar y modelar
+
+--
+
+**Desafíos**:
+
+1. **Multicolinealidad**: Variables redundantes generan inestabilidad
+
+2. **Visualización**: Imposible graficar 20 dimensiones
+
+3. **Interpretación**: ¿Qué patrones hay en los datos?
+
+4. **Complejidad**: Modelos con muchos predictores tienden al overfitting
+
+**Solución**: Reducir dimensiones preservando información
+
+---
+
+# PCA: Idea intuitiva
+
+**Análisis de Componentes Principales** busca nuevas variables (componentes) que:
+
+1. Son **combinaciones lineales** de las variables originales
+
+2. Capturan la **máxima varianza** de los datos
+
+3. Son **no correlacionadas** entre sí (ortogonales)
+
+4. Están ordenadas por importancia (PC1 explica más que PC2, etc.)
+
+--
+
+**Analogía**: Imaginar una nube de puntos en 3D
+
+- PC1: dirección de mayor dispersión (eje principal)
+- PC2: segunda mayor dispersión, perpendicular a PC1
+- PC3: tercera mayor dispersión, perpendicular a PC1 y PC2
+
+PCA encuentra automáticamente estos ejes en $p$ dimensiones.
+
+---
+
+# Ejemplo visual: De 2D a 1D
+
+```{r pca-demo, echo=FALSE, fig.height=5}
+set.seed(789)
+n <- 100
+x1 <- rnorm(n)
+x2 <- 0.8 * x1 + rnorm(n, sd = 0.5)
+datos_2d <- tibble(x1 = x1, x2 = x2)
+
+pca_demo <- prcomp(datos_2d, scale = TRUE)
+scores <- as.data.frame(pca_demo$x)
+loadings <- as.data.frame(pca_demo$rotation)
+var_explicada <- (pca_demo$sdev^2 / sum(pca_demo$sdev^2)) * 100
+
+ggplot(datos_2d, aes(x = x1, y = x2)) +
+  geom_point(alpha = 0.5, size = 2) +
+  geom_segment(x = 0, y = 0, xend = loadings[1,1]*3, yend = loadings[2,1]*3,
+               arrow = arrow(length = unit(0.3, "cm")), color = "red", linewidth = 1.5) +
+  geom_segment(x = 0, y = 0, xend = loadings[1,2]*3, yend = loadings[2,2]*3,
+               arrow = arrow(length = unit(0.3, "cm")), color = "blue", linewidth = 1.5) +
+  annotate("text", x = loadings[1,1]*3.5, y = loadings[2,1]*3.5,
+           label = paste0("PC1 (", round(var_explicada[1], 1), "%)"), 
+           color = "red", size = 5) +
+  annotate("text", x = loadings[1,2]*3.5, y = loadings[2,2]*3.5,
+           label = paste0("PC2 (", round(var_explicada[2], 1), "%)"), 
+           color = "blue", size = 5) +
+  coord_fixed() + labs(title = "Componentes principales en 2D",
+       subtitle = "PC1 captura la dirección de máxima varianza") +
+  theme_minimal(base_size = 14)
+```
+
+---
+
+# Fundamento matemático
+
+PCA busca una matriz de pesos $W$ que maximiza la varianza de los datos proyectados:
+
+$$\max_{w_1} \text{Var}(Xw_1) = \max_{w_1} w_1^T \Sigma w_1$$
+
+sujeto a $||w_1|| = 1$
+
+Donde:
+
+- $X$: matriz de datos centrados ($n \times p$)
+- $\Sigma$: matriz de covarianza ($p \times p$)
+- $w_1$: vector de pesos del primer componente ($p \times 1$)
+
+--
+
+**Solución**: $w_1$ es el **eigenvector** asociado al **mayor eigenvalue** de $\Sigma$
+
+Los siguientes componentes ($w_2, w_3, ...$) son eigenvectors de eigenvalues decrecientes, con ortogonalidad:
+
+$$w_i^T w_j = 0 \text{ para } i \neq j$$
+
+---
+
+# Implementación en R: Datos de países
+
+```{r pca-data, echo=TRUE}
+# Datos de desarrollo económico (simulados)
+set.seed(2025)
+paises <- tibble(
+  pais = paste("País", 1:50),
+  pib_percapita = rnorm(50, mean = 25000, sd = 15000),
+  esperanza_vida = rnorm(50, mean = 72, sd = 8),
+  años_educacion = rnorm(50, mean = 12, sd = 3),
+  gini = rnorm(50, mean = 40, sd = 10),
+  acceso_internet = rnorm(50, mean = 60, sd = 25)
+) %>%
+  mutate(across(where(is.numeric), ~pmax(., 0)))
+```
+
+```{r pca-head, echo=FALSE}
+head(paises, 5) %>%
+  kable(format = "html", digits = 1)
+```
+
+---
+
+# Matriz de correlaciones
+
+```{r cor-matrix, echo=FALSE, fig.height=5.5}
+cor_matrix <- paises %>% select(-pais) %>% cor()
+corrplot(cor_matrix, method = "color", type = "upper", addCoef.col = "black", 
+         number.cex = 0.8, tl.col = "black", tl.srt = 45,
+         title = "Matriz de correlaciones", mar = c(0,0,2,0))
+```
+
+---
+
+# PCA paso a paso
+
+```{r pca-impl, echo=TRUE}
+# PCA (scale = TRUE estandariza)
+datos_pca <- paises %>% select(-pais)
+pca_resultado <- prcomp(datos_pca, scale = TRUE)
+
+# Resumen
+summary(pca_resultado)
+```
+
+---
+
+# Scree plot: ¿Cuántos componentes retener?
+
+```{r scree, echo=FALSE, fig.height=5}
+var_exp <- tibble(
+  PC = 1:5,
+  Proporcion = (pca_resultado$sdev^2) / sum(pca_resultado$sdev^2)
+)
+
+ggplot(var_exp, aes(x = PC, y = Proporcion)) +
+  geom_line(color = "#2196F3", linewidth = 1.2) +
+  geom_point(color = "#2196F3", size = 4) +
+  geom_hline(yintercept = 1/5, linetype = "dashed", color = "red", alpha = 0.5) +
+  scale_x_continuous(breaks = 1:5) +
+  scale_y_continuous(labels = scales::percent) +
+  labs(title = "Scree Plot: Porcentaje de varianza explicada",
+       subtitle = "Línea roja: criterio de Kaiser (eigenvalue = 1)",
+       x = "Componente Principal", y = "Proporción de varianza") +
+  theme_minimal(base_size = 14)
+```
+
+**Criterios**: (1) Eigenvalue > 1, (2) Codo, (3) Varianza acumulada 70-90%
+
+---
+
+# Loadings: ¿Qué representa cada componente?
+
+```{r loadings, echo=FALSE}
+loadings_df <- pca_resultado$rotation %>%
+  as.data.frame() %>%
+  rownames_to_column("Variable") %>%
+  select(Variable, PC1, PC2, PC3)
+
+loadings_df %>%
+  mutate(across(where(is.numeric), ~round(., 3))) %>%
+  kable(format = "html")
+```
+
+--
+
+**Interpretación de PC1**:
+
+PC1 parece capturar **nivel de desarrollo**:
+
+- Alto PC1 → mayor PIB, mayor esperanza de vida, más educación
+- Bajo PC1 → lo opuesto
+
+---
+
+# Biplot: Observaciones + Variables
+
+```{r biplot, echo=FALSE, fig.height=5.5}
+scores_df <- as.data.frame(pca_resultado$x) %>% mutate(pais = paises$pais)
+loadings_plot <- loadings_df %>%
+  select(Variable, PC1, PC2) %>%
+  mutate(PC1 = PC1 * 5, PC2 = PC2 * 5)
+
+ggplot() +
+  geom_point(data = scores_df, aes(x = PC1, y = PC2), alpha = 0.5, color = "gray50") +
+  geom_segment(data = loadings_plot, aes(x = 0, y = 0, xend = PC1, yend = PC2),
+               arrow = arrow(length = unit(0.3, "cm")), color = "red", linewidth = 1) +
+  geom_text(data = loadings_plot, aes(x = PC1 * 1.15, y = PC2 * 1.15, label = Variable),
+            color = "red", size = 3.5, fontface = "bold") +
+  labs(title = "Biplot: Países en espacio de PC1-PC2",
+       subtitle = "Vectores rojos = variables originales",
+       x = paste0("PC1 (", round(var_exp$Proporcion[1] * 100, 1), "%)"),
+       y = paste0("PC2 (", round(var_exp$Proporcion[2] * 100, 1), "%)")) +
+  theme_minimal(base_size = 14) + coord_fixed()
+```
+
+---
+
+# Tamaño muestral: Limitación crítica
+
+**Regla fundamental**: $n \geq 5p$ (mínimo), $n \geq 10p$ (ideal)
+
+Donde $n$ = observaciones, $p$ = variables
+
+```{r sample-size, echo=FALSE}
+tibble(
+  `Ratio n:p` = c("< 2:1", "2:1 - 5:1", "5:1 - 10:1", "> 10:1"),
+  Evaluación = c("❌ Crítico", "⚠️ Problemático", "✅ Aceptable", "✅ Ideal"),
+  Acción = c("NO hacer PCA", "PCA con advertencias", "Validar con KMO", "PCA confiable")
+) %>%
+  kable(format = "html")
+```
+
+**Además**: $n < 50$ → evitar PCA, $n \geq 200$ → zona cómoda
+
+**Problema en economía**: Frecuentemente tenemos pocos países/años pero muchas variables
+
+---
+
+# Test de adecuación: KMO
+
+**Kaiser-Meyer-Olkin**: Mide si PCA es apropiado para los datos
+
+```{r kmo, echo=TRUE}
+# Calcular KMO
+kmo_resultado <- KMO(datos_pca)
+print(kmo_resultado$MSA)
+```
+
+**Interpretación**:
+
+- KMO > 0.9: Excelente
+- KMO > 0.8: Bueno
+- KMO > 0.7: Aceptable
+- KMO > 0.6: Mediocre
+- KMO < 0.6: Inaceptable para PCA
+
+---
+
+# Test de Bartlett
+
+```{r bartlett, echo=TRUE}
+# Test de esfericidad de Bartlett
+bartlett_test <- cortest.bartlett(cor(datos_pca), n = nrow(datos_pca))
+print(bartlett_test)
+```
+
+**Interpretación**:
+
+- $H_0$: Matriz de correlación = identidad (variables independientes)
+- $p < 0.05$ → Rechazamos $H_0$ → Variables correlacionadas → OK para PCA ✅
+
+Si $p > 0.05$ → Las variables son independientes → PCA no tiene sentido
+
+---
+
+# Limitaciones de PCA
+
+1. **Asume relaciones lineales**
+   - PCA solo captura correlaciones lineales
+   - Alternativa: Kernel PCA, UMAP
+
+2. **Sensibilidad a outliers**
+   - Outliers extremos distorsionan componentes
+   - Considerar PCA robusto
+
+3. **Interpretación no garantizada**
+   - Los componentes son matemáticos, no necesariamente sustantivos
+   - Puede no haber interpretación económica clara
+
+---
+
+# Limitaciones de PCA 
+
+4. **Pérdida de interpretabilidad**
+   - Variables originales tienen significado directo
+   - Componentes son combinaciones abstractas
+
+5. **No es feature selection**
+   - PCA transforma variables, no las selecciona
+   - Alternativa: Lasso, Random Forest
+
+---
+
+# Casos de uso en Economía
+
+**1. Índices compuestos**
+- Índice de desarrollo humano
+- Índice de competitividad nacional
+- Índice de riesgo país
+
+**2. Reducción dimensional para ML**
+- Feature engineering antes de clustering
+- Evitar multicolinealidad en regresión
+- Compresión de datos
+
+---
+
+# Casos de uso en Economía
+
+**3. Visualización**
+- Graficar países en "espacio económico"
+- Detectar patrones y outliers
+- Identificar grupos naturales
+
+**4. Análisis exploratorio**
+- Entender estructura de correlaciones
+- Identificar dimensiones latentes
+- Detectar redundancia en variables
+
+---
+
+# Ejemplo aplicado: Crear índice de desarrollo
+
+```{r composite-index, echo=TRUE}
+# Usar PC1 como índice (si tiene interpretación válida)
+paises_con_indice <- paises %>%
+  mutate(
+    indice_desarrollo = pca_resultado$x[, 1],
+    indice_norm = scales::rescale(indice_desarrollo, to = c(0, 100))
+  )
+
+# Ranking de países
+ranking <- paises_con_indice %>%
+  select(pais, indice_norm) %>%
+  arrange(desc(indice_norm)) %>%
+  mutate(ranking = row_number(), indice_norm = round(indice_norm, 1))
+```
+
+```{r ranking-table, echo=FALSE}
+head(ranking, 10) %>%
+  kable(format = "html", col.names = c("País", "Índice (0-100)", "Ranking"))
+```
+
+---
+
+# Resumen: PCA
+
+**Usar PCA cuando**:
+
+- Muchas variables correlacionadas
+- $n \geq 5p$ (mínimo), idealmente $n \geq 10p$
+- KMO > 0.6, Bartlett significativo
+- Objetivo: reducción dimensional, no interpretación forzada
+
+--
+
+**No usar PCA cuando**:
+
+- $n$ muy pequeño relativo a $p$
+- Variables no correlacionadas
+- Interpretabilidad es crítica
+- Necesitas selección de variables
+
+--
+
+**Recordar**:
+
+- PCA es matemático, interpretación no garantizada
+- Verificar tamaño muestral SIEMPRE
+- Validar con KMO y Bartlett
+- Considerar alternativas (Lasso, FA) según objetivo
+
+---
+
+# Comparación final: ANOVA vs PCA
+
+```{r comparison, echo=FALSE}
+tibble(
+  Aspecto = c("Tipo", "Variables", "Objetivo", "Supuestos", "Output", "Interpretabilidad"),
+  ANOVA = c("Supervisado", "1 continua", "Comparar grupos", "Normalidad, homogeneidad",
+            "p-valor, diferencias", "Alta"),
+  PCA = c("No supervisado", "Múltiples continuas", "Reducir dimensiones", 
+          "Linealidad, n/p", "Componentes, varianza", "Variable")
+) %>%
+  kable(format = "html")
+```
+
+**Son herramientas complementarias**: ANOVA para inferencia causal sobre grupos, PCA para exploración y reducción dimensional.
+
+---
+
+class: inverse, center, middle
+
+# ¿Preguntas?
+
+### Nicolás Sidicaro - FCE-UBA
+### Octubre 2025

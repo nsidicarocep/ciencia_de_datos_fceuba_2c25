@@ -1,0 +1,1209 @@
+<!DOCTYPE html>
+<html lang="" xml:lang="">
+  <head>
+    <title>ANOVA y Análisis de Componentes Principales</title>
+    <meta charset="utf-8" />
+    <meta name="author" content="Nicolás Sidicaro" />
+    <script src="libs/header-attrs-2.29/header-attrs.js"></script>
+    <link href="libs/remark-css-0.0.1/default.css" rel="stylesheet" />
+    <link href="libs/remark-css-0.0.1/metropolis.css" rel="stylesheet" />
+    <link href="libs/remark-css-0.0.1/metropolis-fonts.css" rel="stylesheet" />
+  </head>
+  <body>
+    <textarea id="source">
+class: center, middle, inverse, title-slide
+
+.title[
+# ANOVA y Análisis de Componentes Principales
+]
+.subtitle[
+## Unidad 2: Estadística Básica y Aplicada
+]
+.author[
+### Nicolás Sidicaro
+]
+.date[
+### Octubre 2025
+]
+
+---
+
+
+
+
+class: inverse, center, middle
+
+# Parte 1: ANOVA
+## Analysis of Variance
+
+---
+
+# Motivación: El problema de las comparaciones múltiples
+
+**Situación**: Queremos comparar salarios entre 5 industrias diferentes.
+
+**Opción ingenua**: Hacer múltiples t-tests
+
+- Industria A vs B
+- Industria A vs C
+- Industria B vs C
+- ... (10 comparaciones en total)
+
+--
+
+**Problema**: Con cada test hay 5% de probabilidad de error tipo I
+
+`$$P(\text{al menos un error}) = 1 - (0.95)^{10} = 0.40$$`
+
+Con 10 tests, hay **40% de probabilidad** de encontrar al menos una diferencia falsa.
+
+---
+
+# ANOVA: La solución
+
+**Análisis de Varianza (ANOVA)** resuelve este problema con un **único test omnibus**:
+
+- `\(H_0\)`: Todas las medias grupales son iguales (`\(\mu_1 = \mu_2 = ... = \mu_k\)`)
+- `\(H_1\)`: Al menos una media es diferente
+
+--
+
+**Ventajas**:
+
+- Controla el error tipo I familiar-wise
+- Un solo p-valor para la pregunta global
+- Descompone la varianza total en componentes interpretables
+
+--
+
+**¿Cuándo usar ANOVA?**
+
+- Comparar 3+ grupos en una variable continua
+- Diseño experimental con múltiples tratamientos
+- Datos que cumplen supuestos paramétricos
+
+---
+
+# La lógica de ANOVA
+
+ANOVA descompone la **varianza total** en dos fuentes:
+
+`$$SS_{Total} = SS_{Between} + SS_{Within}$$`
+
+**Varianza Between-groups** (`\(SS_B\)`):
+- ¿Qué tan diferentes son las medias grupales?
+- Atribuible al factor de interés
+
+**Varianza Within-groups** (`\(SS_W\)`):
+- ¿Qué tan variables son los datos dentro de cada grupo?
+- Error aleatorio, variabilidad natural
+
+--
+
+**Estadístico F**: Compara ambas fuentes
+
+`$$F = \frac{MS_{Between}}{MS_{Within}} = \frac{SS_B/(k-1)}{SS_W/(n-k)}$$`
+
+Si `\(F\)` es grande → la variación entre grupos es mucho mayor que dentro de grupos → evidencia contra `\(H_0\)`
+
+---
+
+# Generación de datos: Salarios por sector
+
+
+``` r
+salarios &lt;- tibble(
+  sector = rep(c("Finanzas", "Tecnología", "Educación", "Salud", "Manufactura"), 
+               each = 30),
+  salario = c(
+    rnorm(30, mean = 85, sd = 15),  # Finanzas
+    rnorm(30, mean = 75, sd = 12),  # Tecnología
+    rnorm(30, mean = 45, sd = 8),   # Educación
+    rnorm(30, mean = 55, sd = 10),  # Salud
+    rnorm(30, mean = 50, sd = 9)    # Manufactura
+  )
+)
+```
+
+&lt;table&gt;
+ &lt;thead&gt;
+  &lt;tr&gt;
+   &lt;th style="text-align:left;"&gt; Sector &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; N &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; Media &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; SD &lt;/th&gt;
+  &lt;/tr&gt;
+ &lt;/thead&gt;
+&lt;tbody&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Educación &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 30 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 45.2 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 7.0 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Finanzas &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 30 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 84.3 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 14.7 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Manufactura &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 30 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 48.3 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 10.3 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Salud &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 30 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 54.1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 9.1 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Tecnología &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 30 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 77.1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 10.0 &lt;/td&gt;
+  &lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+
+---
+
+# Visualización de los datos
+
+&lt;img src="clase_16_pca_anova_files/figure-html/salary-viz-1.png" width="720" /&gt;
+
+---
+
+# ANOVA en R: Implementación
+
+
+``` r
+# ANOVA de un factor
+modelo_anova &lt;- aov(salario ~ sector, data = salarios)
+summary(modelo_anova)
+```
+
+```
+##              Df Sum Sq Mean Sq F value Pr(&gt;F)    
+## sector        4  37735    9434   85.07 &lt;2e-16 ***
+## Residuals   145  16080     111                   
+## ---
+## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+```
+
+--
+
+**Interpretación**:
+
+- Si `\(F value &lt; \alpha\)` → Rechazamos `\(H_0\)`
+- Al menos un sector tiene salario promedio diferente
+- El sector explica una parte significativa de la variabilidad salarial
+
+---
+
+# Post-hoc: ¿Qué grupos difieren?
+
+ANOVA solo responde "hay diferencias", no indica **cuáles**.
+
+**Solución**: Comparaciones post-hoc con corrección por comparaciones múltiples.
+
+
+``` r
+# Test de Tukey (controla error familiar-wise)
+comparaciones &lt;- emmeans(modelo_anova, pairwise ~ sector, adjust = "tukey")
+```
+
+&lt;table&gt;
+ &lt;thead&gt;
+  &lt;tr&gt;
+   &lt;th style="text-align:left;"&gt; Comparación &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; Diferencia &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; p-valor &lt;/th&gt;
+   &lt;th style="text-align:left;"&gt; Sig. &lt;/th&gt;
+  &lt;/tr&gt;
+ &lt;/thead&gt;
+&lt;tbody&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Educación - Finanzas &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -39.10 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.0000 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; *** &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Educación - Manufactura &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -3.15 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.7743 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt;  &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Educación - Salud &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -8.87 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.0119 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; *** &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Educación - Tecnología &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -31.94 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.0000 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; *** &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Finanzas - Manufactura &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 35.95 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.0000 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; *** &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Finanzas - Salud &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 30.23 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.0000 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; *** &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Finanzas - Tecnología &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 7.15 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.0701 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt;  &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Manufactura - Salud &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -5.71 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.2252 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt;  &lt;/td&gt;
+  &lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+
+**Interpretación**: Finanzas difiere significativamente de todos los sectores. Tecnología difiere de Educación, pero no de Salud ni Manufactura.
+
+---
+
+# ANOVA vs Regresión: Son equivalentes
+
+
+``` r
+# Opción 1: ANOVA
+modelo_anova &lt;- aov(salario ~ sector, data = salarios)
+# Opción 2: Regresión con dummies (EQUIVALENTE)
+modelo_regresion &lt;- lm(salario ~ factor(sector), data = salarios)
+```
+
+---
+
+.pull-left[
+
+```
+## Analysis of Variance Table
+## 
+## Response: salario
+##                 Df Sum Sq Mean Sq F value    Pr(&gt;F)    
+## factor(sector)   4  37735  9433.8   85.07 &lt; 2.2e-16 ***
+## Residuals      145  16080   110.9                      
+## ---
+## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+```
+]
+
+.pull-left[
+
+```
+## 
+## Call:
+## lm(formula = salario ~ factor(sector), data = salarios)
+## 
+## Residuals:
+##      Min       1Q   Median       3Q      Max 
+## -28.7927  -6.8327  -0.6807   6.6443  27.5103 
+## 
+## Coefficients:
+##                           Estimate Std. Error t value Pr(&gt;|t|)    
+## (Intercept)                 45.195      1.923  23.507  &lt; 2e-16 ***
+## factor(sector)Finanzas      39.098      2.719  14.380  &lt; 2e-16 ***
+## factor(sector)Manufactura    3.152      2.719   1.159  0.24820    
+## factor(sector)Salud          8.866      2.719   3.261  0.00139 ** 
+## factor(sector)Tecnología    31.945      2.719  11.749  &lt; 2e-16 ***
+## ---
+## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+## 
+## Residual standard error: 10.53 on 145 degrees of freedom
+## Multiple R-squared:  0.7012,	Adjusted R-squared:  0.693 
+## F-statistic: 85.07 on 4 and 145 DF,  p-value: &lt; 2.2e-16
+```
+]
+
+---
+
+# ¿Entonces por qué usar ANOVA?
+
+1. **Framework conceptual**: Pensar en "grupos" vs "predictores"
+
+2. **Diseño experimental**: Lenguaje natural para A/B/C/D testing
+
+3. **Post-hoc integrado**: Tukey, Bonferroni ya implementados
+
+4. **Más fácil y rápido**: Directamente devuelve si hay diferencias o no las hay, sin depender de cuál es la categoría base.
+
+---
+
+# Two-Way ANOVA: Interacciones
+
+**Pregunta**: ¿La brecha salarial de género varía por sector?
+
+
+
+&lt;img src="clase_16_pca_anova_files/figure-html/interaction-plot-1.png" width="720" /&gt;
+
+---
+
+# Two-Way ANOVA en R
+
+
+``` r
+# ANOVA con dos factores e interacción
+modelo_2way &lt;- aov(salario ~ genero * sector, data = salarios_genero)
+summary(modelo_2way)
+```
+
+```
+##                Df Sum Sq Mean Sq F value   Pr(&gt;F)    
+## genero          1   8286    8286   82.65 3.62e-15 ***
+## sector          2  26171   13085  130.52  &lt; 2e-16 ***
+## genero:sector   2   2658    1329   13.26 6.67e-06 ***
+## Residuals     114  11429     100                     
+## ---
+## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+```
+
+**Interpretación**:
+
+- **genero**: Efecto principal significativo (brecha promedio existe)
+- **sector**: Efecto principal significativo (sectores difieren)
+- **genero:sector**: Interacción significativa (la brecha **varía** por sector)
+
+---
+
+# Supuestos de ANOVA
+
+ANOVA requiere verificar tres supuestos:
+
+1. **Independencia**: Las observaciones son independientes
+   - Crítico, violación grave
+   - Verificar por diseño del estudio
+
+2. **Normalidad**: Los residuos siguen distribución normal
+   - Test de Shapiro-Wilk, Q-Q plots
+   - Robusto con `\(n\)` grande (TCL)
+
+3. **Homogeneidad de varianzas**: Varianzas iguales entre grupos
+   - Test de Levene
+   - Si se viola: Welch ANOVA
+
+---
+
+# Verificación de supuestos en R
+
+&lt;img src="clase_16_pca_anova_files/figure-html/diagnostics-1.png" width="720" /&gt;
+
+---
+
+# Test de Levene: Homogeneidad de varianzas
+
+
+``` r
+# Test de Levene
+leveneTest(salario ~ sector, data = salarios)
+```
+
+```
+## Levene's Test for Homogeneity of Variance (center = median)
+##        Df F value   Pr(&gt;F)   
+## group   4  4.5581 0.001697 **
+##       145                    
+## ---
+## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+```
+
+**Interpretación**:
+
+- Si `\(p &gt; 0.05\)` → No rechazamos `\(H_0\)`
+- Las varianzas son homogéneas
+- ANOVA estándar es apropiado
+
+--
+
+**Si se violara** (`\(p &lt; 0.05\)`): Usar `oneway.test()` con corrección de Welch
+
+
+``` r
+# Alternativa robusta a heterogeneidad
+oneway.test(salario ~ sector, data = salarios, var.equal = FALSE)
+```
+
+---
+
+# Alternativa no paramétrica: Kruskal-Wallis
+
+**ANOVA no paramétrico**: Test de Kruskal-Wallis
+
+
+``` r
+# Alternativa cuando normalidad no se cumple
+kruskal.test(salario ~ sector, data = salarios)
+```
+
+```
+## 
+## 	Kruskal-Wallis rank sum test
+## 
+## data:  salario by sector
+## Kruskal-Wallis chi-squared = 105.01, df = 4, p-value &lt; 2.2e-16
+```
+
+Basado en rangos, no asume normalidad.
+
+---
+
+# Resumen: ANOVA
+
+**Usar ANOVA cuando**:
+
+- Comparar 3+ grupos
+- Diseño experimental (A/B/C/D testing)
+- Se quieren descomponer las varianza explícitamente
+- Necesitas comparaciones post-hoc con control de error (ej. para ver qué grupos difieren entre sí)
+
+--
+
+**Pasar a regresión cuando**:
+
+- Predictores continuos
+- Modelos complejos con muchas variables
+- Necesitas regularización o ML
+
+--
+
+**Recordar**:
+
+- ANOVA = regresión con dummies
+- Verificar supuestos (especialmente con `\(n &lt; 30\)`)
+- Post-hoc con corrección (Tukey, Bonferroni)
+
+---
+
+class: inverse, center, middle
+
+# Parte 2: PCA
+## Principal Component Analysis
+
+---
+
+# Motivación: La maldición de la dimensionalidad
+
+**Problema frecuente en economía**:
+
+Datos de 30 países con 20 indicadores económicos:
+
+- PIB per cápita, inflación, desempleo, Gini, esperanza de vida...
+- Variables correlacionadas entre sí
+- Difícil visualizar, interpretar y modelar
+
+--
+
+**Desafíos**:
+
+1. **Multicolinealidad**: Variables redundantes generan inestabilidad
+
+2. **Visualización**: Imposible graficar 20 dimensiones
+
+3. **Interpretación**: ¿Qué patrones hay en los datos?
+
+4. **Complejidad**: Modelos con muchos predictores tienden al overfitting
+
+**Solución**: Reducir dimensiones preservando información
+
+---
+
+# PCA: Idea intuitiva
+
+**Análisis de Componentes Principales** busca nuevas variables (componentes) que:
+
+1. Son **combinaciones lineales** de las variables originales
+
+2. Capturan la **máxima varianza** de los datos
+
+3. Son **no correlacionadas** entre sí (ortogonales)
+
+4. Están ordenadas por importancia (PC1 explica más que PC2, etc.)
+
+--
+
+**Analogía**: Imaginar una nube de puntos en 3D
+
+- PC1: dirección de mayor dispersión (eje principal)
+- PC2: segunda mayor dispersión, perpendicular a PC1
+- PC3: tercera mayor dispersión, perpendicular a PC1 y PC2
+
+PCA encuentra automáticamente estos ejes en `\(p\)` dimensiones.
+
+---
+
+# Ejemplo visual: De 2D a 1D
+
+&lt;img src="clase_16_pca_anova_files/figure-html/pca-demo-1.png" width="720" /&gt;
+
+---
+
+# Fundamento matemático
+
+PCA busca una matriz de pesos `\(W\)` que maximiza la varianza de los datos proyectados:
+
+`$$\max_{w_1} \text{Var}(Xw_1) = \max_{w_1} w_1^T \Sigma w_1$$`
+
+sujeto a `\(||w_1|| = 1\)`
+
+Donde:
+
+- `\(X\)`: matriz de datos centrados (`\(n \times p\)`)
+- `\(\Sigma\)`: matriz de covarianza (`\(p \times p\)`)
+- `\(w_1\)`: vector de pesos del primer componente (`\(p \times 1\)`)
+
+--
+
+**Solución**: `\(w_1\)` es el **eigenvector** asociado al **mayor eigenvalue** de `\(\Sigma\)`
+
+Los siguientes componentes (`\(w_2, w_3, ...\)`) son eigenvectors de eigenvalues decrecientes, con ortogonalidad:
+
+`$$w_i^T w_j = 0 \text{ para } i \neq j$$`
+
+---
+
+# Implementación en R: Datos de países
+
+
+``` r
+# Datos de desarrollo económico (simulados)
+set.seed(2025)
+paises &lt;- tibble(
+  pais = paste("País", 1:50),
+  pib_percapita = rnorm(50, mean = 25000, sd = 15000),
+  esperanza_vida = rnorm(50, mean = 72, sd = 8),
+  años_educacion = rnorm(50, mean = 12, sd = 3),
+  gini = rnorm(50, mean = 40, sd = 10),
+  acceso_internet = rnorm(50, mean = 60, sd = 25)
+) %&gt;%
+  mutate(across(where(is.numeric), ~pmax(., 0)))
+```
+
+&lt;table&gt;
+ &lt;thead&gt;
+  &lt;tr&gt;
+   &lt;th style="text-align:left;"&gt; pais &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; pib_percapita &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; esperanza_vida &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; años_educacion &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; gini &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; acceso_internet &lt;/th&gt;
+  &lt;/tr&gt;
+ &lt;/thead&gt;
+&lt;tbody&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; País 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 34311.4 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 75.0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 14.1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 35.2 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 55.1 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; País 2 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 25534.6 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 62.2 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 11.2 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 38.5 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.0 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; País 3 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 36597.3 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 70.7 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 15.1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 36.6 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 42.4 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; País 4 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 44087.3 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 80.7 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 12.7 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 28.1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 57.8 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; País 5 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 30564.6 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 74.9 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 8.0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 37.8 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 55.6 &lt;/td&gt;
+  &lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+
+---
+
+# Matriz de correlaciones
+
+&lt;img src="clase_16_pca_anova_files/figure-html/cor-matrix-1.png" width="720" /&gt;
+
+---
+
+# PCA paso a paso
+
+
+``` r
+# PCA (scale = TRUE estandariza)
+datos_pca &lt;- paises %&gt;% select(-pais)
+pca_resultado &lt;- prcomp(datos_pca, scale = TRUE)
+
+# Resumen
+summary(pca_resultado)
+```
+
+```
+## Importance of components:
+##                           PC1    PC2    PC3    PC4    PC5
+## Standard deviation     1.1297 1.0481 0.9989 0.9435 0.8587
+## Proportion of Variance 0.2552 0.2197 0.1995 0.1780 0.1475
+## Cumulative Proportion  0.2552 0.4749 0.6745 0.8525 1.0000
+```
+
+---
+
+# Scree plot: ¿Cuántos componentes retener?
+
+&lt;img src="clase_16_pca_anova_files/figure-html/scree-1.png" width="720" /&gt;
+
+**Criterios**: (1) Eigenvalue &gt; 1, (2) Codo, (3) Varianza acumulada 70-90%
+
+---
+
+# Loadings: ¿Qué representa cada componente?
+
+&lt;table&gt;
+ &lt;thead&gt;
+  &lt;tr&gt;
+   &lt;th style="text-align:left;"&gt; Variable &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; PC1 &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; PC2 &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; PC3 &lt;/th&gt;
+  &lt;/tr&gt;
+ &lt;/thead&gt;
+&lt;tbody&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; pib_percapita &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -0.407 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -0.485 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -0.062 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; esperanza_vida &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -0.035 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.773 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -0.312 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; años_educacion &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.613 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.133 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.199 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; gini &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.203 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -0.215 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -0.926 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; acceso_internet &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.646 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -0.322 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.046 &lt;/td&gt;
+  &lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+
+--
+
+**Interpretación de PC1**:
+
+PC1 parece capturar **nivel de desarrollo**:
+
+- Alto PC1 → mayor PIB, mayor esperanza de vida, más educación
+- Bajo PC1 → lo opuesto
+
+---
+
+# Biplot: Observaciones + Variables
+
+&lt;img src="clase_16_pca_anova_files/figure-html/biplot-1.png" width="720" /&gt;
+
+---
+
+# Tamaño muestral: Limitación crítica
+
+**Regla fundamental**: `\(n \geq 5p\)` (mínimo), `\(n \geq 10p\)` (ideal)
+
+Donde `\(n\)` = observaciones, `\(p\)` = variables
+
+&lt;table&gt;
+ &lt;thead&gt;
+  &lt;tr&gt;
+   &lt;th style="text-align:left;"&gt; Ratio n:p &lt;/th&gt;
+   &lt;th style="text-align:left;"&gt; Evaluación &lt;/th&gt;
+   &lt;th style="text-align:left;"&gt; Acción &lt;/th&gt;
+  &lt;/tr&gt;
+ &lt;/thead&gt;
+&lt;tbody&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; &amp;lt; 2:1 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; ❌ Crítico &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; NO hacer PCA &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; 2:1 - 5:1 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; ⚠️ Problemático &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; PCA con advertencias &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; 5:1 - 10:1 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; ✅ Aceptable &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; Validar con KMO &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; &amp;gt; 10:1 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; ✅ Ideal &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; PCA confiable &lt;/td&gt;
+  &lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+
+**Además**: `\(n &lt; 50\)` → evitar PCA, `\(n \geq 200\)` → zona cómoda
+
+**Problema en economía**: Frecuentemente tenemos pocos países/años pero muchas variables
+
+---
+
+# Test de adecuación: KMO
+
+**Kaiser-Meyer-Olkin**: Mide si PCA es apropiado para los datos
+
+
+``` r
+# Calcular KMO
+kmo_resultado &lt;- KMO(datos_pca)
+print(kmo_resultado$MSA)
+```
+
+```
+## [1] 0.4944231
+```
+
+**Interpretación**:
+
+- KMO &gt; 0.9: Excelente
+- KMO &gt; 0.8: Bueno
+- KMO &gt; 0.7: Aceptable
+- KMO &gt; 0.6: Mediocre
+- KMO &lt; 0.6: Inaceptable para PCA
+
+---
+
+# Test de Bartlett
+
+
+``` r
+# Test de esfericidad de Bartlett
+bartlett_test &lt;- cortest.bartlett(cor(datos_pca), n = nrow(datos_pca))
+print(bartlett_test)
+```
+
+```
+## $chisq
+## [1] 3.972002
+## 
+## $p.value
+## [1] 0.9486012
+## 
+## $df
+## [1] 10
+```
+
+**Interpretación**:
+
+- `\(H_0\)`: Matriz de correlación = identidad (variables independientes)
+- `\(p &lt; 0.05\)` → Rechazamos `\(H_0\)` → Variables correlacionadas → OK para PCA ✅
+
+Si `\(p &gt; 0.05\)` → Las variables son independientes → PCA no tiene sentido
+
+---
+
+# Limitaciones de PCA
+
+1. **Asume relaciones lineales**
+   - PCA solo captura correlaciones lineales
+   - Alternativa: Kernel PCA, UMAP
+
+2. **Sensibilidad a outliers**
+   - Outliers extremos distorsionan componentes
+   - Considerar PCA robusto
+
+3. **Interpretación no garantizada**
+   - Los componentes son matemáticos, no necesariamente sustantivos
+   - Puede no haber interpretación económica clara
+
+---
+
+# Limitaciones de PCA 
+
+4. **Pérdida de interpretabilidad**
+   - Variables originales tienen significado directo
+   - Componentes son combinaciones abstractas
+
+5. **No es feature selection**
+   - PCA transforma variables, no las selecciona
+   - Alternativa: Lasso, Random Forest
+
+---
+
+# Casos de uso en Economía
+
+**1. Índices compuestos**
+- Índice de desarrollo humano
+- Índice de competitividad nacional
+- Índice de riesgo país
+
+**2. Reducción dimensional para ML**
+- Feature engineering antes de clustering
+- Evitar multicolinealidad en regresión
+- Compresión de datos
+
+---
+
+# Casos de uso en Economía
+
+**3. Visualización**
+- Graficar países en "espacio económico"
+- Detectar patrones y outliers
+- Identificar grupos naturales
+
+**4. Análisis exploratorio**
+- Entender estructura de correlaciones
+- Identificar dimensiones latentes
+- Detectar redundancia en variables
+
+---
+
+# Ejemplo aplicado: Crear índice de desarrollo
+
+
+``` r
+# Usar PC1 como índice (si tiene interpretación válida)
+paises_con_indice &lt;- paises %&gt;%
+  mutate(
+    indice_desarrollo = pca_resultado$x[, 1],
+    indice_norm = scales::rescale(indice_desarrollo, to = c(0, 100))
+  )
+
+# Ranking de países
+ranking &lt;- paises_con_indice %&gt;%
+  select(pais, indice_norm) %&gt;%
+  arrange(desc(indice_norm)) %&gt;%
+  mutate(ranking = row_number(), indice_norm = round(indice_norm, 1))
+```
+
+&lt;table&gt;
+ &lt;thead&gt;
+  &lt;tr&gt;
+   &lt;th style="text-align:left;"&gt; País &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; Índice (0-100) &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; Ranking &lt;/th&gt;
+  &lt;/tr&gt;
+ &lt;/thead&gt;
+&lt;tbody&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; País 8 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 100.0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; País 43 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 98.0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; País 31 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 84.6 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; País 10 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 83.8 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 4 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; País 16 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 82.8 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 5 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; País 48 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 80.2 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 6 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; País 50 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 76.8 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 7 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; País 38 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 76.5 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 8 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; País 26 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 69.7 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 9 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; País 36 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 68.9 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 10 &lt;/td&gt;
+  &lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+
+---
+
+# Resumen: PCA
+
+**Usar PCA cuando**:
+
+- Muchas variables correlacionadas
+- `\(n \geq 5p\)` (mínimo), idealmente `\(n \geq 10p\)`
+- KMO &gt; 0.6, Bartlett significativo
+- Objetivo: reducción dimensional, no interpretación forzada
+
+--
+
+**No usar PCA cuando**:
+
+- `\(n\)` muy pequeño relativo a `\(p\)`
+- Variables no correlacionadas
+- Interpretabilidad es crítica
+- Necesitas selección de variables
+
+--
+
+**Recordar**:
+
+- PCA es matemático, interpretación no garantizada
+- Verificar tamaño muestral SIEMPRE
+- Validar con KMO y Bartlett
+- Considerar alternativas (Lasso, FA) según objetivo
+
+---
+
+# Comparación final: ANOVA vs PCA
+
+&lt;table&gt;
+ &lt;thead&gt;
+  &lt;tr&gt;
+   &lt;th style="text-align:left;"&gt; Aspecto &lt;/th&gt;
+   &lt;th style="text-align:left;"&gt; ANOVA &lt;/th&gt;
+   &lt;th style="text-align:left;"&gt; PCA &lt;/th&gt;
+  &lt;/tr&gt;
+ &lt;/thead&gt;
+&lt;tbody&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Tipo &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; Supervisado &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; No supervisado &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Variables &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 1 continua &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; Múltiples continuas &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Objetivo &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; Comparar grupos &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; Reducir dimensiones &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Supuestos &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; Normalidad, homogeneidad &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; Linealidad, n/p &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Output &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; p-valor, diferencias &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; Componentes, varianza &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Interpretabilidad &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; Alta &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; Variable &lt;/td&gt;
+  &lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+
+**Son herramientas complementarias**: ANOVA para inferencia causal sobre grupos, PCA para exploración y reducción dimensional.
+
+---
+
+class: inverse, center, middle
+
+# ¿Preguntas?
+
+### Nicolás Sidicaro - FCE-UBA
+### Octubre 2025
+    </textarea>
+<style data-target="print-only">@media screen {.remark-slide-container{display:block;}.remark-slide-scaler{box-shadow:none;}}</style>
+<script src="https://remarkjs.com/downloads/remark-latest.min.js"></script>
+<script>var slideshow = remark.create({
+  "highlightStyle": "github",
+  "highlightLines": true,
+  "countIncrementalSlides": false,
+  "ratio": "16:9"
+});
+if (window.HTMLWidgets) slideshow.on('afterShowSlide', function (slide) {
+  window.dispatchEvent(new Event('resize'));
+});
+(function(d) {
+  var s = d.createElement("style"), r = d.querySelector(".remark-slide-scaler");
+  if (!r) return;
+  s.type = "text/css"; s.innerHTML = "@page {size: " + r.style.width + " " + r.style.height +"; }";
+  d.head.appendChild(s);
+})(document);
+
+(function(d) {
+  var el = d.getElementsByClassName("remark-slides-area");
+  if (!el) return;
+  var slide, slides = slideshow.getSlides(), els = el[0].children;
+  for (var i = 1; i < slides.length; i++) {
+    slide = slides[i];
+    if (slide.properties.continued === "true" || slide.properties.count === "false") {
+      els[i - 1].className += ' has-continuation';
+    }
+  }
+  var s = d.createElement("style");
+  s.type = "text/css"; s.innerHTML = "@media print { .has-continuation { display: none; } }";
+  d.head.appendChild(s);
+})(document);
+// delete the temporary CSS (for displaying all slides initially) when the user
+// starts to view slides
+(function() {
+  var deleted = false;
+  slideshow.on('beforeShowSlide', function(slide) {
+    if (deleted) return;
+    var sheets = document.styleSheets, node;
+    for (var i = 0; i < sheets.length; i++) {
+      node = sheets[i].ownerNode;
+      if (node.dataset["target"] !== "print-only") continue;
+      node.parentNode.removeChild(node);
+    }
+    deleted = true;
+  });
+})();
+// add `data-at-shortcutkeys` attribute to <body> to resolve conflicts with JAWS
+// screen reader (see PR #262)
+(function(d) {
+  let res = {};
+  d.querySelectorAll('.remark-help-content table tr').forEach(tr => {
+    const t = tr.querySelector('td:nth-child(2)').innerText;
+    tr.querySelectorAll('td:first-child .key').forEach(key => {
+      const k = key.innerText;
+      if (/^[a-z]$/.test(k)) res[k] = t;  // must be a single letter (key)
+    });
+  });
+  d.body.setAttribute('data-at-shortcutkeys', JSON.stringify(res));
+})(document);
+(function() {
+  "use strict"
+  // Replace <script> tags in slides area to make them executable
+  var scripts = document.querySelectorAll(
+    '.remark-slides-area .remark-slide-container script'
+  );
+  if (!scripts.length) return;
+  for (var i = 0; i < scripts.length; i++) {
+    var s = document.createElement('script');
+    var code = document.createTextNode(scripts[i].textContent);
+    s.appendChild(code);
+    var scriptAttrs = scripts[i].attributes;
+    for (var j = 0; j < scriptAttrs.length; j++) {
+      s.setAttribute(scriptAttrs[j].name, scriptAttrs[j].value);
+    }
+    scripts[i].parentElement.replaceChild(s, scripts[i]);
+  }
+})();
+(function() {
+  var links = document.getElementsByTagName('a');
+  for (var i = 0; i < links.length; i++) {
+    if (/^(https?:)?\/\//.test(links[i].getAttribute('href'))) {
+      links[i].target = '_blank';
+    }
+  }
+})();
+// adds .remark-code-has-line-highlighted class to <pre> parent elements
+// of code chunks containing highlighted lines with class .remark-code-line-highlighted
+(function(d) {
+  const hlines = d.querySelectorAll('.remark-code-line-highlighted');
+  const preParents = [];
+  const findPreParent = function(line, p = 0) {
+    if (p > 1) return null; // traverse up no further than grandparent
+    const el = line.parentElement;
+    return el.tagName === "PRE" ? el : findPreParent(el, ++p);
+  };
+
+  for (let line of hlines) {
+    let pre = findPreParent(line);
+    if (pre && !preParents.includes(pre)) preParents.push(pre);
+  }
+  preParents.forEach(p => p.classList.add("remark-code-has-line-highlighted"));
+})(document);</script>
+
+<script>
+slideshow._releaseMath = function(el) {
+  var i, text, code, codes = el.getElementsByTagName('code');
+  for (i = 0; i < codes.length;) {
+    code = codes[i];
+    if (code.parentNode.tagName !== 'PRE' && code.childElementCount === 0) {
+      text = code.textContent;
+      if (/^\\\((.|\s)+\\\)$/.test(text) || /^\\\[(.|\s)+\\\]$/.test(text) ||
+          /^\$\$(.|\s)+\$\$$/.test(text) ||
+          /^\\begin\{([^}]+)\}(.|\s)+\\end\{[^}]+\}$/.test(text)) {
+        code.outerHTML = code.innerHTML;  // remove <code></code>
+        continue;
+      }
+    }
+    i++;
+  }
+};
+slideshow._releaseMath(document);
+</script>
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+(function () {
+  var script = document.createElement('script');
+  script.type = 'text/javascript';
+  script.src  = 'https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-MML-AM_CHTML';
+  if (location.protocol !== 'file:' && /^https?:/.test(script.src))
+    script.src  = script.src.replace(/^https?:/, '');
+  document.getElementsByTagName('head')[0].appendChild(script);
+})();
+</script>
+  </body>
+</html>
