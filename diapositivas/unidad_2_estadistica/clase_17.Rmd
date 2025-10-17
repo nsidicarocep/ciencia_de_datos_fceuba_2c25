@@ -1,1489 +1,1051 @@
 ---
-title: "Regresión Lineal"
-subtitle: "Fundamentos para Economía y Ciencia de Datos"
-author: "Prof. Nicolás Sidicaro"
-date: "Septiembre 2025"
+title: "Regresión Lineal Aplicada"
+subtitle: "Fundamentos, Diagnósticos y Práctica en R"
+author: "Nicolás Sidicaro"
+institute: "FCE UBA"
+date: "`r Sys.Date()`"
 output:
   xaringan::moon_reader:
     lib_dir: libs
-    css: [default, metropolis, metropolis-fonts]
+    css: [default, default-fonts, hygge]
     nature:
       highlightStyle: github
       highlightLines: true
       countIncrementalSlides: false
-      ratio: "16:9"
+      ratio: '16:9'
 ---
-
 ```{r setup, include=FALSE}
 options(htmltools.dir.version = FALSE)
 knitr::opts_chunk$set(
   echo = TRUE,
   warning = FALSE,
   message = FALSE,
-  fig.width = 8,
-  fig.height = 5,
-  fig.align = 'center',
-  dpi = 300
+  fig.width = 10,
+  fig.height = 6,
+  fig.retina = 3,
+  out.width = "100%",
+  cache = FALSE
 )
+
+# Cargar paquetes
+library(wooldridge)
 library(tidyverse)
+library(car)
+library(lmtest)
+library(sandwich)
+library(stargazer)
+library(knitr)
+library(kableExtra)
 ```
 
 class: inverse, center, middle
 
-# Objetivos de la clase
-
-### • Comprender qué es la regresión lineal y cuándo usarla
-### • Distinguir entre enfoque econométrico y de machine learning
-### • Identificar los supuestos fundamentales y su importancia
-### • Interpretar coeficientes en diferentes especificaciones
-### • Diagnosticar problemas comunes y sus soluciones
+# Bloque 1
+## Fundamentos de Regresión Lineal
 
 ---
 
-# ¿Qué es la regresión lineal?
-
-## Definición intuitiva
-
-**Regresión lineal**: método para modelar la relación entre:
-- Una **variable dependiente** (Y): lo que queremos explicar/predecir
-- Una o más **variables independientes** (X): factores que influyen
-
---
-
-## La idea fundamental
-
-Encontrar la **mejor línea** que describe cómo Y cambia cuando cambian las X
-
-```
-Salario = β₀ + β₁ × Educación + β₂ × Experiencia + ε
-```
-
-Donde:
-- **β₀**: Intercepto (punto de partida)
-- **β₁, β₂**: Pendientes (efectos de cada X sobre Y)
-- **ε**: Error (lo que el modelo no explica)
-
----
-
-# Visualización: la intuición geométrica
+# ¿Qué estamos haciendo con regresión?
 
 .pull-left[
-## Regresión simple (una X)
+**Objetivo principal:**
+- Modelar relaciones entre variables
+- Describir asociaciones
+- Hacer predicciones
 
-```
-Salario ($)
-    │
-120k│              ×
-    │        × ×
- 80k│    ×     
-    │×  
- 40k│  
-    │_______________
-       8  12  16  20
-    Años educación
-```
-
-**Objetivo**: Minimizar suma de errores²
+**No necesariamente:**
+- Establecer causalidad
+- Demostrar que X "causa" Y
 ]
 
 .pull-right[
-## Regresión múltiple
-
-Con más variables:
-- Ya no es una línea
-- Es un **hiperplano**
-- En múltiples dimensiones
-
-```r
-Salario = f(Educación, 
-            Experiencia, 
-            Género, 
-            Región, ...)
+```{r echo=FALSE, fig.height=5}
+set.seed(123)
+x <- rnorm(100)
+y <- 2 + 3*x + rnorm(100)
+plot(x, y, pch=19, col="steelblue", 
+     main="Relación entre X e Y",
+     xlab="Variable X", ylab="Variable Y")
+abline(lm(y~x), col="red", lwd=2)
 ```
 ]
 
 ---
 
-# ¿Por qué "mínimos cuadrados"?
+# ⚠️ Correlación ≠ Causalidad
 
-## El principio de estimación (MCO/OLS)
+.pull-left[
+**Correlaciones espurias:**
 
-1. Para cada observación i:
-   - Valor real: y<sub>i</sub>
-   - Valor predicho: ŷ<sub>i</sub> = β₀ + β₁x<sub>1i</sub> + ...
-   - Error: e<sub>i</sub> = y<sub>i</sub> - ŷ<sub>i</sub>
+Ejemplos clásicos:
+- Consumo de helado y ahogamientos
+- Número de películas de Nicolas Cage y ahogamientos en piscinas
+- Divorcio en Maine y consumo de margarina
+
+**Mensaje clave:** Una relación estadística fuerte NO implica que una variable cause la otra
+]
+
+.pull-right[
+```{r echo=FALSE, fig.height=5}
+años <- 2000:2009
+helado <- c(2.5, 3.2, 3.8, 4.1, 3.9, 4.5, 4.8, 4.3, 4.6, 5.1)
+ahogamientos <- c(120, 145, 165, 175, 168, 185, 195, 180, 188, 205)
+plot(helado, ahogamientos, pch=19, col="darkred", cex=1.5,
+     main="Ejemplo: Helado vs Ahogamientos",
+     xlab="Ventas de helado", ylab="Ahogamientos")
+abline(lm(ahogamientos~helado), col="blue", lwd=2)
+```
+]
+
+---
+
+# El Modelo de Regresión Lineal Simple
+
+$$Y_i = \beta_0 + \beta_1 X_i + u_i$$
+
+**Componentes:**
+- $Y_i$: Variable dependiente (lo que queremos explicar)
+- $X_i$: Variable independiente (explicativa)
+- $\beta_0$: Intercepto (valor de Y cuando X=0)
+- $\beta_1$: Pendiente (efecto marginal de X sobre Y)
+- $u_i$: Error o residuo (lo que no podemos explicar)
 
 --
 
-2. Queremos **minimizar**: Σ(e<sub>i</sub>²)
+**MCO (Mínimos Cuadrados Ordinarios):**
+- Minimiza la suma de errores al cuadrado: $\min \sum u_i^2$
+- Encuentra la "mejor" línea que pasa por los datos
+
+---
+
+# Primer Ejemplo en R: Salarios
+```{r}
+# Cargar datos de salarios
+data(wage1)
+head(wage1[, c("wage", "educ", "exper", "tenure")], 8)
+```
+
+---
+
+# Modelo Simple: Salario ~ Educación
+```{r}
+# Estimar modelo
+modelo1 <- lm(wage ~ educ, data = wage1)
+summary(modelo1)
+```
+
+---
+
+# Interpretación del Output
+```{r echo=FALSE}
+summary(modelo1)$coefficients
+```
+
+**Interpretación:**
+
+- **Intercepto (β₀):** -0.90 → Una persona con 0 años de educación ganaría -$0.90/hora (no tiene sentido real, es extrapolación)
+
+- **Educación (β₁):** 0.54 → Por cada año adicional de educación, el salario aumenta en $0.54/hora **en promedio**
+
+- **P-valores < 0.001:** Ambos coeficientes son altamente significativos (***) 
+
+- **R² = 0.165:** La educación explica solo el 16.5% de la variación en salarios
+
+---
+
+# Visualización del Modelo
+```{r echo=FALSE, fig.height=6}
+ggplot(wage1, aes(x = educ, y = wage)) +
+  geom_point(alpha = 0.5, color = "steelblue") +
+  geom_smooth(method = "lm", color = "red", se = TRUE) +
+  labs(title = "Salario vs Educación",
+       x = "Años de Educación",
+       y = "Salario por hora ($)") +
+  theme_minimal(base_size = 14)
+```
+
+---
+
+# Modelos Logarítmicos: ¿Por qué?
+
+**Problema:** Las relaciones económicas rara vez son lineales
+
+**Soluciones:** Transformaciones logarítmicas
+
+| Modelo | Ecuación | Interpretación de β₁ |
+|--------|----------|---------------------|
+| **Lin-Lin** | $Y = \beta_0 + \beta_1 X$ | Cambio en unidades |
+| **Log-Lin** | $\log(Y) = \beta_0 + \beta_1 X$ | $\beta_1 \times 100$% cambio en Y por unidad de X |
+| **Lin-Log** | $Y = \beta_0 + \beta_1 \log(X)$ | $\beta_1/100$ unidades de Y por 1% cambio en X |
+| **Log-Log** | $\log(Y) = \beta_0 + \beta_1 \log(X)$ | Elasticidad: β₁% cambio en Y por 1% cambio en X |
+
+---
+
+# Ejemplo: Modelo Log-Lin
+```{r}
+# Modelo con logaritmo del salario
+modelo_log <- lm(log(wage) ~ educ, data = wage1)
+summary(modelo_log)$coefficients
+```
 
 --
 
-3. ¿Por qué cuadrados?
-   - ✅ Penaliza errores grandes más que pequeños
-   - ✅ Errores + y - no se cancelan
-   - ✅ Solución matemática elegante
-   - ⚠️ Sensible a outliers
+**Interpretación:**
+
+- **β₁ = 0.083** → Por cada año adicional de educación, el salario aumenta aproximadamente **8.3%** 
+
+- Cálculo: $e^{0.083} - 1 = 0.0865$ ≈ 8.65%
+
+- Este modelo suele ajustar mejor para salarios (R² = 0.186 vs 0.165)
 
 ---
 
-# Casos de uso en economía
+# Comparación Visual: Lineal vs Log
 
-## 1. Análisis causal (Econometría clásica)
+.pull-left[
+```{r echo=FALSE, fig.height=5}
+ggplot(wage1, aes(x = educ, y = wage)) +
+  geom_point(alpha = 0.3) +
+  geom_smooth(method = "lm", color = "red") +
+  labs(title = "Modelo Lineal", x = "Educación", y = "Salario") +
+  theme_minimal()
+```
+]
 
-**¿Cuál es el efecto de X sobre Y?**
-
-| Pregunta | Variable Y | Variables X clave |
-|----------|-----------|-------------------|
-| Retorno a educación | Salario | Años educación, experiencia |
-| Efecto salario mínimo | Desempleo | Salario mínimo, PIB |
-| Discriminación salarial | Salario | Género, educación |
-
-**Enfoque**: Identificar efecto **causal**, controlar confusores
-
----
-
-# Casos de uso en economía
-
-## 2. Predicción (Machine Learning)
-
-**¿Cuál será el valor futuro de Y dados X?**
-
-| Aplicación | Variable Y | Features |
-|------------|-----------|----------|
-| Precio viviendas | Precio | m², ubicación, antigüedad |
-| Demanda producto | Ventas | Precio, publicidad |
-| Credit scoring | Default | Ingresos, deuda, historial |
-
-**Enfoque**: Maximizar poder predictivo, validación out-of-sample
+.pull-right[
+```{r echo=FALSE, fig.height=5}
+ggplot(wage1, aes(x = educ, y = log(wage))) +
+  geom_point(alpha = 0.3) +
+  geom_smooth(method = "lm", color = "blue") +
+  labs(title = "Modelo Log-Lineal", x = "Educación", y = "Log(Salario)") +
+  theme_minimal()
+```
+]
 
 ---
 
-## 3. Análisis descriptivo
+# Modelo Log-Log: Elasticidades
+```{r}
+# Precios de casas y tamaño
+data(hprice1)
 
-**¿Qué factores se asocian con Y?**
+# Modelo log-log
+modelo_elasticidad <- lm(log(price) ~ log(sqrft), data = hprice1)
+summary(modelo_elasticidad)$coefficients
+```
 
-- Identificar correlaciones importantes
-- Explorar relaciones multivariadas
-- Generar hipótesis para investigación
-- Benchmarking entre unidades
+--
+
+**Interpretación:**
+
+- **β₁ = 0.70** → Si el tamaño de la casa aumenta 1%, el precio aumenta 0.70% (elasticidad)
+
+- Útil para comparar variables en diferentes escalas
 
 ---
 
 class: inverse, center, middle
+
+# Bloque 2
+## Regresión Múltiple y Variables Categóricas
+
+---
+
+# Regresión Múltiple
+
+$$Y_i = \beta_0 + \beta_1 X_{1i} + \beta_2 X_{2i} + ... + \beta_k X_{ki} + u_i$$
+
+**Ventajas:**
+- Controlar por múltiples factores simultáneamente
+- Reducir el sesgo por variables omitidas
+- Interpretación **ceteris paribus** (manteniendo todo lo demás constante)
+
+--
+
+**Interpretación de βⱼ:**
+- El cambio en Y cuando Xⱼ aumenta en una unidad, **manteniendo las demás variables constantes**
+
+---
+
+# Ejemplo: Salario con Múltiples Variables
+```{r}
+# Modelo múltiple
+modelo_multiple <- lm(wage ~ educ + exper + tenure, data = wage1)
+summary(modelo_multiple)
+```
+
+---
+
+# Interpretación del Modelo Múltiple
+```{r echo=FALSE}
+summary(modelo_multiple)$coefficients
+```
+
+**Interpretaciones (ceteris paribus):**
+
+- **Educación:** Por cada año adicional de educación, el salario aumenta $0.60/hora, manteniendo experiencia y antigüedad constantes
+
+- **Experiencia:** Por cada año de experiencia, el salario aumenta $0.014/hora
+
+- **Antigüedad (tenure):** Por cada año en el trabajo actual, el salario aumenta $0.17/hora
+
+--
+
+**Nota:** Los coeficientes cambiaron respecto al modelo simple (educación era 0.54, ahora es 0.60)
+
+---
+
+# Bondad de Ajuste: R² y R² Ajustado
+```{r echo=FALSE}
+cat("R² =", round(summary(modelo_multiple)$r.squared, 4), "\n")
+cat("R² ajustado =", round(summary(modelo_multiple)$adj.r.squared, 4))
+```
+
+**R² (coeficiente de determinación):**
+- Proporción de la varianza de Y explicada por el modelo
+- Rango: 0 a 1
+- **Problema:** Siempre aumenta al agregar variables (aunque no sean relevantes)
+
+--
+
+**R² ajustado:**
+- Penaliza por agregar variables
+- Puede disminuir si agregamos variables irrelevantes
+- **Mejor para comparar modelos con distinto número de variables**
+
+---
+
+# Tests de Significancia
+
+**Test t individual:** ¿Es βⱼ significativamente distinto de cero?
+- $H_0$: $\beta_j$ = 0 (la variable no tiene efecto)
+- $H_i$: $\beta_j$ != 0 (la variable sí tiene efecto)
+- Miramos el p-valor: 
+  - p < 0.01 → $***$ (muy significativo)
+  - p < 0.05 → $**$ (significativo)
+  - p < 0.10 → $*$ (marginalmente significativo)
+
+--
+
+**Test F global:** ¿El modelo completo es significativo?
+- $H_0$ : $\beta_1 = \beta_2 = ... = \beta_k = 0$ (ninguna variable importa)
+- $H_1$ : Al menos un $\beta_k$ !=  0
+```{r echo=FALSE}
+f_stat <- summary(modelo_multiple)$fstatistic
+p_value <- pf(f_stat[1], f_stat[2], f_stat[3], lower.tail = FALSE)
+cat("F-statistic:", round(f_stat[1], 2), "con p-valor < 0.001")
+```
+
+---
+
+# Variables Dicotómicas (Dummies)
+
+**¿Qué son?**
+- Variables que toman valores 0 o 1
+- Representan categorías: género, región, tratamiento, etc.
+
+**Codificación:**
+```{r}
+wage1 <- wage1 %>%
+  mutate(mujer = ifelse(female == 1, 1, 0))
+
+# Ver distribución
+table(wage1$mujer)
+```
+
+---
+
+# Ejemplo: Brecha de Género Salarial
+```{r}
+# Modelo con dummy de género
+modelo_genero <- lm(wage ~ educ + exper + mujer, data = wage1)
+summary(modelo_genero)$coefficients
+```
+
+--
+
+**Interpretación:**
+
+- **mujer = -1.81** → Las mujeres ganan $1.81/hora **menos** que los hombres, manteniendo educación y experiencia constantes
+
+- Altamente significativo (p < 0.001)
+
+---
+
+# Brecha de Género en Modelo Log-Lineal
+```{r}
+# Modelo log para interpretar en porcentajes
+modelo_genero_log <- lm(log(wage) ~ educ + exper + mujer, data = wage1)
+summary(modelo_genero_log)$coefficients
+```
+
+--
+
+**Interpretación:**
+
+- **mujer = -0.297** → Las mujeres ganan aproximadamente **29.7% menos**, manteniendo educación y experiencia constantes
+
+- Más fácil de comunicar que diferencias absolutas
+
+---
+
+# Variables Categóricas con Múltiples Categorías
+
+**Regla m-1:** Si una variable tiene m categorías, incluimos m-1 dummies
+
+**Ejemplo:** Ocupación (8 categorías en wage1)
+```{r}
+# Ver ocupaciones
+table(wage1$occupation)
+```
+
+--
+
+**¿Por qué m-1?**
+- Evitar multicolinealidad perfecta
+- La categoría omitida es la **categoría base** (referencia)
+- Las dummies se interpretan respecto a la base
+
+---
+
+# Ejemplo: Ocupación y Salarios
+```{r}
+wage1 <- wage1 %>% 
+  mutate(ocupacion = case_when(construc == 1 ~ 'Construccion',
+                               ndurman == 1 ~ 'Industria',
+                               trcommpu == 1 ~ 'Transporte y comunicaciones',
+                               trade == 1 ~ 'Comercio',
+                               services == 1 ~ 'Servicios',
+                               TRUE ~ 'Otros servicios'
+                               ),
+         ocupacion_f = factor (ocupacion))
+modelo_ocupacion <- lm(log(wage) ~ educ + exper + ocupacion_f, data = wage1)
+```
+```{r echo=FALSE}
+summary(modelo_ocupacion)
+```
+
+**Interpretación:** Cada coeficiente compara esa ocupación con la categoría base ("Comercio")
+
+---
+
+class: inverse, center, middle
+
+# Bloque 3
+## Supuestos y Diagnósticos
+
+---
 
 # Supuestos de Gauss-Markov
 
----
+Para que MCO sea el **Mejor Estimador Lineal Insesgado (MELI/BLUE):**
 
-# ¿Por qué importan los supuestos?
+1. **Linealidad en parámetros:** El modelo es lineal en los β
 
-Los supuestos de Gauss-Markov **garantizan** que MCO sea el **BLUE**:
+2. **Exogeneidad:** $E[u|X] = 0$ (el error no está correlacionado con X)
 
-.pull-left[
-- **B**est (mejor)
-- **L**inear (lineal)
-- **U**nbiased (insesgado)
-- **E**stimator (estimador)
-]
+3. **No multicolinealidad perfecta:** Las X no están perfectamente correlacionadas
 
-.pull-right[
-**Es decir**: MCO es el estimador lineal de **menor varianza** entre todos los insesgados
-]
+4. **Homocedasticidad:** $Var(u|X) = \sigma^2$ (varianza constante del error)
 
----
-
-# Los 5 supuestos fundamentales
-
-## Supuesto 1: Linealidad
-
-El modelo es **lineal en los parámetros**:
-
-```
-Y = β₀ + β₁X₁ + β₂X₂ + ... + βₖXₖ + ε
-```
-
-**Nota importante**: Lineal en parámetros ≠ lineal en variables
-
-- ✅ Esto SÍ es lineal: Y = β₀ + β₁X + β₂X² (lineal en β)
-- ❌ Esto NO: Y = β₀ + X^β₁ (no lineal en β)
+5. **No autocorrelación:** $Cov(u_i, u_j) = 0$ para i ≠ j
 
 --
 
-**Consecuencia si se viola**: MCO no es apropiado
+**¿Qué pasa si se violan?**
+- Estimadores dejan de ser óptimos
+- Pueden ser sesgados o ineficientes
+- Necesitamos diagnósticos y correcciones
 
 ---
 
-# Supuesto 2: Exogeneidad estricta
+# PROBLEMA 1: Multicolinealidad
 
-Los errores no están correlacionados con las X:
+**¿Qué es?**
+- Alta correlación entre variables independientes
+- Las X están "diciendo lo mismo"
 
-```
-E(ε | X₁, X₂, ..., Xₖ) = 0
-```
-
-Equivalente a: **Cov(X<sub>j</sub>, ε) = 0** para todo j
+**Síntomas:**
+- R² alto pero pocos coeficientes significativos
+- Coeficientes con signos inesperados
+- Errores estándar muy grandes
+- Coeficientes muy sensibles a pequeños cambios en datos
 
 --
 
-**En lenguaje simple**: Las X son **exógenas**, no están correlacionadas con factores omitidos en el error
-
---
-
-**Consecuencia si se viola**: 
-- ❌ **Sesgo en los coeficientes** (estimación incorrecta)
-- Problema más grave: afecta inferencia causal
+**Consecuencia:**
+- Estimadores siguen siendo insesgados
+- Pero tienen varianzas infladas → dificulta detectar efectos reales
 
 ---
 
-# Causas comunes de violación
+# Detección: Matriz de Correlación
+```{r fig.height=5}
+# Seleccionar variables numéricas
+vars_numericas <- wage1 %>% select(wage, educ, exper, tenure)
 
-## Variables omitidas
-
-```r
-Salario = β₀ + β₁ × Educación + ε
+# Matriz de correlación
+cor(vars_numericas) %>% round(3)
 ```
 
-Omitimos **Habilidad**, que:
-- Afecta Salario (está en ε)
-- Correlacionada con Educación
-
-→ β̂₁ está **sesgado hacia arriba**
-
---
-
-## Simultaneidad (causalidad reversa)
-
-```r
-Cantidad = β₀ + β₁ × Precio + ε
-```
-
-- Precio afecta Cantidad
-- Pero Cantidad también afecta Precio (equilibrio)
+**Interpretación:**
+- Experiencia y antigüedad tienen correlación moderada (0.459)
+- Educación tiene baja correlación con las demás (bueno)
 
 ---
 
-# Supuesto 3: No multicolinealidad perfecta
-
-Ninguna X puede ser **combinación lineal perfecta** de otras X
-
-**Ejemplos**:
-
-.pull-left[
-✅ **OK**:  
-```r
-Y ~ Educación + Experiencia
-```
-]
-
-.pull-right[
-❌ **MAL**: 
-```r
-Y ~ Edad + Experiencia + 
-    (Edad - Experiencia)
-```
-]
-
---
-
-**Consecuencia**: No se pueden estimar los coeficientes
-
-**Multicolinealidad imperfecta** (más común):
-- X correlacionadas pero no perfectamente
-- Coeficientes siguen insesgados
-- Pero **alta varianza** (menos precisión)
-
----
-
-# Supuesto 4: Homoscedasticidad
-
-La varianza del error es **constante** para todos los valores de X:
-
-```
-Var(ε | X) = σ²
-```
-
-.pull-left[
-**Homocedástico**:
-```
-Residuos
-  2│ × × × ×
-  0│× × × × ×
- -2│ × × ×
-   └─────────
-     Fitted
-```
-]
-
-.pull-right[
-**Heterocedástico**:
-```
-Residuos
-  2│      × ×
-  0│  × × ×
- -2│×
-   └─────────
-     Fitted
-  (fan shape)
-```
-]
-
---
-
-**Consecuencia si se viola**:
-- ✅ Coeficientes insesgados
-- ❌ Errores estándar incorrectos → inferencia errónea
-
----
-
-# Supuesto 5: No autocorrelación
-
-Los errores son **independientes** entre observaciones:
-
-```
-Cov(εᵢ, εⱼ) = 0  para todo i ≠ j
-```
-
-**Cuándo es relevante**:
-- Series temporales
-- Panel data  
-- Datos espaciales
-
---
-
-**Ejemplo**: Regresión de PIB trimestral
-- Si ε<sub>t</sub> > 0, probablemente ε<sub>t+1</sub> > 0
-- Errores "persisten" en el tiempo
-
---
-
-**Consecuencia**:
-- ✅ Coeficientes insesgados
-- ❌ Errores estándar incorrectos
-
----
-
-# Resumen de supuestos y consecuencias
-
-| Supuesto | Violación | β̂ | SE(β̂) | Solución |
-|----------|-----------|-----|-------|----------|
-| Linealidad | Especif. errónea | ❌ Sesgado | ❌ Incorrecto | Transformación |
-| Exogeneidad | Endogeneidad | ❌ Sesgado | ❌ Incorrecto | IV, controles |
-| No multicolinealidad | Multicolin. | ✅ Insesgado | ❌ Alta var | Eliminar vars |
-| Homoscedasticidad | Heterosc. | ✅ Insesgado | ❌ Incorrecto | Errores robustos |
-| No autocorrelación | Autocorr. | ✅ Insesgado | ❌ Incorrecto | Errores HAC |
-
---
-
-**Jerarquía de gravedad**:
-1. 🔴 **Endogeneidad**: Sesgo → inferencia causal imposible
-2. 🟡 **Hetero/autocorrelación**: Solo inferencia incorrecta
-3. 🟢 **Multicolinealidad**: Solo precisión afectada
-
----
-
-class: inverse, center, middle
-
-# Econometría vs Machine Learning
-
----
-
-# El gran contraste
-
-|  | **Econometría** | **Machine Learning** |
-|--|----------------|---------------------|
-| **Objetivo** | Inferencia causal | Predicción |
-| **Pregunta** | ¿Efecto de X sobre Y? | ¿Cuál será Y dado X? |
-| **Preocupación** | Sesgo en coeficientes | Error out-of-sample |
-| **Supuestos** | Explícitos y críticos | Flexibles |
-| **Interpretabilidad** | Fundamental | Secundaria |
-| **Complejidad** | Parsimonia | Muchas features |
-| **Evaluación** | Significancia, R² | RMSE, validación cruzada |
-| **Overfitting** | Menos preocupante | Preocupación central |
-
----
-
-# Ejemplo concreto: Determinantes salariales
-
-.pull-left[
-## Perspectiva econométrica
-
-```r
-modelo <- lm(
-  log_salario ~ educacion + 
-                experiencia + 
-                female,
-  data = wage1
-)
-```
-
-**Foco**: β_educacion  
-**Interpretación**: Retorno causal  
-**Preocupación**: ¿Endogeneidad?
-]
-
-.pull-right[
-## Perspectiva ML
-
-```r
-modelo_ml <- lm(
-  salario ~ educacion + 
-            experiencia + 
-            female + region + 
-            sector + ocupacion +
-            horas + ...,
-  data = train_data
-)
-```
-
-**Foco**: RMSE en test  
-**Preocupación**: ¿Overfitting?
-]
-
----
-
-# El trade-off sesgo-varianza
-
-.pull-left[
-## Econometría
-
-- Priorizamos **insesgadez**
-- Aceptamos mayor varianza
-- Modelos parsimoniosos
-]
-
-.pull-right[
-## Machine Learning
-
-- Aceptamos sesgo si reduce varianza
-- Minimizar **MSE = sesgo² + varianza**
-- Regularización introduce sesgo
-]
-
---
-
-```
-Error de     │     
-predicción   │   ╱ Varianza
-             │  ╱___  Error total (MSE)
-             │      ╲___ Sesgo²
-             └──────────────────
-               Simple → Complejo
-```
-
----
-
-# ¿Cuándo usar cada enfoque?
-
-## Usa enfoque econométrico cuando:
-
-- Quieres entender **causas**
-- Necesitas estimar **efectos de políticas**
-- La interpretación es crítica
-- Tienes **teoría económica** que guía el modelo
-
-**Ejemplos**: Evaluación de impacto, retornos a educación
-
---
-
-## Usa enfoque ML cuando:
-
-- Quieres **predecir** valores futuros
-- No importa tanto el "por qué"
-- Tienes **muchas variables** potenciales
-- Necesitas máxima precisión predictiva
-
-**Ejemplos**: Credit scoring, forecast de ventas
-
----
-
-class: inverse, center, middle
-
-# Interpretación de Coeficientes
-
----
-
-# La interpretación fundamental
-
-En regresión lineal simple:
-
-```
-Y = β₀ + β₁X + ε
-```
-
-**β₁** representa: 
-
-> "El cambio en Y asociado con un aumento de **una unidad** en X, manteniendo todo lo demás constante (ceteris paribus)"
-
---
-
-**β₀** representa: 
-
-> El valor esperado de Y cuando X = 0 (a menudo sin interpretación sustantiva)
-
----
-
-# Modelos con diferentes especificaciones
-
-## 1. Nivel-Nivel (lineal puro)
-
-```
-Salario = β₀ + β₁ × Educación + ε
-```
-
-**Interpretación de β₁**: 
-- "Un año adicional de educación se asocia con un incremento de **β₁ pesos** en el salario"
-- Efecto **aditivo**
-
-**Ejemplo**: 
-- Si β₁ = 5000: cada año suma $5,000
-
----
-
-# 2. Log-Nivel (Y en logaritmo)
-
-```
-log(Salario) = β₀ + β₁ × Educación + ε
-```
-
-**Interpretación de β₁**:
-- "Un año adicional de educación se asocia con un incremento de **β₁ × 100%** en el salario"
-- Efecto **porcentual**
-
---
-
-**Ejemplo**: 
-- Si β₁ = 0.10: cada año aumenta salario en **10%**
-
-**Ventajas**:
-- Captura retornos porcentuales (más realista)
-- Reduce heteroscedasticidad
-- Coeficientes comparables entre contextos
-
----
-
-# 3. Nivel-Log (X en logaritmo)
-
-```
-Salario = β₀ + β₁ × log(PIB_per_capita) + ε
-```
-
-**Interpretación de β₁**:
-- "Un incremento del 1% en PIB per cápita se asocia con un incremento de **β₁/100 pesos** en salario"
-
-**Útil cuando**:
-- X tiene rangos muy amplios (PIB, población)
-- Relación de rendimientos decrecientes
-
----
-
-# 4. Log-Log (ambas en logaritmo)
-
-```
-log(Salario) = β₀ + β₁ × log(Experiencia) + ε
-```
-
-**Interpretación de β₁**:
-- "Un incremento del 1% en experiencia se asocia con un incremento de **β₁%** en salario"
-- β₁ es una **elasticidad**
-
---
-
-**Ejemplo**:
-- Si β₁ = 0.3: aumento del 10% en experiencia → +3% en salario
-
-**Ventajas**:
-- Interpretación como elasticidad (concepto económico)
-- Relación proporcional
-- Muy común en econometría
-
----
-
-# Resumen de especificaciones
-
-| Modelo | Ecuación | Interpretación β₁ | Ejemplo |
-|--------|----------|-------------------|---------|
-| **Nivel-Nivel** | Y = β₀ + β₁X | ΔY = β₁ cuando ΔX = 1 | $5,000 más/año |
-| **Log-Nivel** | log(Y) = β₀ + β₁X | %ΔY = 100β₁ cuando ΔX = 1 | 10% más/año |
-| **Nivel-Log** | Y = β₀ + β₁log(X) | ΔY = β₁/100 cuando %ΔX = 1 | $5 por 1% más PIB |
-| **Log-Log** | log(Y) = β₀ + β₁log(X) | %ΔY = β₁ cuando %ΔX = 1 | Elasticidad 0.3 |
-
----
-
-# Variables dummy (categóricas)
-
-## Dummy simple
-
-```
-Salario = β₀ + β₁ × Female + β₂ × Educación + ε
-```
-
-Donde `Female = 1` si mujer, `0` si hombre
-
-**Interpretación**:
-- **β₀**: Salario esperado para hombres con educación = 0
-- **β₁**: Diferencia salarial entre mujeres y hombres con misma educación
-  - Si β₁ = -5000: brecha de género de $5,000
-
----
-
-# Múltiples categorías
-
-```
-Salario = β₀ + β₁ × Secundaria + β₂ × Universitaria + ε
-```
-
-Categoría de referencia: **Primaria** (omitida)
-
-**Interpretación**:
-- β₁: Diferencia entre secundaria y primaria
-- β₂: Diferencia entre universitaria y primaria
-
---
-
-⚠️ **Regla**: Si tenemos K categorías, incluimos K-1 dummies
-
----
-
-# Interacciones
-
-## Interacción continua × dummy
-
-```
-Salario = β₀ + β₁×Educación + β₂×Female + 
-          β₃×(Educación × Female) + ε
-```
-
-**Interpretación**:
-- **β₁**: Retorno a educación para hombres
-- **β₁ + β₃**: Retorno a educación para mujeres
-- **β₃**: Diferencia en el retorno a educación
-
---
-
-**Ejemplo**:
-- Si β₁ = 6000 y β₃ = -1000:
-  - Hombres: +$6,000 por año
-  - Mujeres: +$5,000 por año
-
----
-
-# Términos cuadráticos
-
-```
-Salario = β₀ + β₁ × Experiencia + β₂ × Experiencia² + ε
-```
-
-**Interpretación**:
-- Relación **no lineal**
-- Efecto marginal **varía** con experiencia
-
-**Efecto marginal**:
-```
-∂Salario/∂Experiencia = β₁ + 2β₂ × Experiencia
+# Detección: Factor de Inflación de Varianza (VIF)
+```{r}
+# Calcular VIF
+vif(modelo_multiple)
 ```
 
 --
 
-**Ejemplo típico**: Retorno a experiencia
-- β₁ > 0, β₂ < 0: Rendimientos decrecientes
-- Punto de máximo: Experiencia* = -β₁/(2β₂)
+**Regla general:**
+- VIF = 1: No correlación
+- VIF entre 1-5: Correlación moderada (aceptable)
+- VIF entre 5-10: Correlación alta (preocupante)
+- VIF > 10: Multicolinealidad severa
+
+**En nuestro caso:** No hay problema serio de multicolinealidad
 
 ---
 
-# Errores comunes en interpretación
+# Ejemplo con Multicolinealidad Alta
+```{r}
+# Crear variable altamente correlacionada
+wage1$exper_mas_tenure <- wage1$exper + wage1$tenure + rnorm(nrow(wage1), 0, 0.5)
 
-❌ **Error 1**: Causalidad automática
-- Regresión muestra **asociación**, no causalidad
-
-❌ **Error 2**: Ceteris paribus olvidado
-- El efecto es "manteniendo todo lo demás constante"
-
-❌ **Error 3**: Extrapolar fuera del rango
-- Válido solo en rango observado
-
-❌ **Error 4**: Ignorar significancia
-- Reportar: coeficiente, error estándar, p-value
-
-❌ **Error 5**: Confundir unidades
-- "Aumenta en X%" vs "aumenta en X pesos"
-
----
-
-class: inverse, center, middle
-
-# Evaluación de Modelos
-
----
-
-# ¿Cómo sabemos si el modelo es "bueno"?
-
-**Depende del objetivo**:
-
-.pull-left[
-## Econometría (causal)
-
-1. ¿Signos esperados?
-2. ¿Significancia estadística?
-3. ¿Supuestos se cumplen?
-4. ¿Parsimonia?
-]
-
-.pull-right[
-## ML (predicción)
-
-1. ¿Predice bien en test?
-2. ¿Error aceptable?
-3. ¿Hay overfitting?
-]
-
----
-
-# R² y R² ajustado
-
-## R² (coeficiente de determinación)
-
+modelo_multicol <- lm(wage ~ educ + exper + tenure + exper_mas_tenure, data = wage1)
 ```
-R² = 1 - (SSR / SST)
+```{r echo=FALSE}
+summary(modelo_multicol)$coefficients
+```
+```{r}
+vif(modelo_multicol)
 ```
 
-**Interpretación**:
-- R² = 0.75: "El modelo explica 75% de la variabilidad de Y"
-- Rango: [0, 1]
+**¡VIF altísimos!** exper_mas_tenure está causando multicolinealidad
+
+---
+
+# Soluciones a Multicolinealidad
+
+**1. Eliminar una de las variables correlacionadas**
+```{r}
+# Quitar la variable problemática
+modelo_sin_multicol <- lm(wage ~ educ + exper + tenure, data = wage1)
+```
+
+**2. Transformar variables**
+- Crear ratios (ej: PBI per cápita en vez de PBI y Población)
+- Usar diferencias
+
+**3. Aceptarlo (si el objetivo es predicción)**
+- Si no nos interesa interpretar coeficientes individuales
+- Si queremos solo predecir Y
+
+**4. Obtener más datos**
+- A veces el problema es muestra pequeña
+
+---
+
+# PROBLEMA 2: Heteroscedasticidad
+
+**¿Qué es?**
+- La varianza del error NO es constante
+- $Var(u|X) = \sigma^2_i$ (varía con i)
+
+**¿Por qué importa?**
+- Estimadores de MCO siguen siendo **insesgados**
+- Pero los **errores estándar están mal calculados**
+- Consecuencia: inferencia incorrecta (p-valores erróneos)
 
 --
 
-**Problema**: R² **siempre aumenta** al agregar variables
+**Causas comunes:**
+- Variables con escalas muy diferentes
+- Relaciones que se amplifican (ej: ingreso alto → mayor variación en consumo)
+- Variables omitidas
 
 ---
 
-# R² ajustado (penaliza complejidad)
-
+# Detección Visual: Gráfico de Residuos
+```{r fig.height=5.5}
+# Residuos vs valores ajustados
+plot(modelo_multiple, which = 1, pch = 19, col = alpha("steelblue", 0.5))
 ```
-R²_adj = 1 - [(1 - R²) × (n - 1) / (n - k - 1)]
-```
 
-**Ventaja**: 
-- Solo aumenta si nueva variable **realmente mejora** ajuste
-- Penaliza modelos complejos
-- Útil para **comparar modelos**
-
---
-
-**Uso práctico**:
-- Modelo 1: R² = 0.75, k = 5
-- Modelo 2: R² = 0.76, k = 15
-- Si R²_adj mayor en Modelo 1 → preferir Modelo 1
+**¿Qué buscamos?** Patrones en la dispersión (forma de embudo, curvas, etc.)
 
 ---
 
-# AIC y BIC
+# Interpretación de Gráficos de Residuos
+```{r echo=FALSE, fig.height=6}
+par(mfrow = c(1, 2))
+# Homocedasticidad
+set.seed(123)
+x_homo <- rnorm(100)
+y_homo <- 2 + 3*x_homo + rnorm(100)
+plot(fitted(lm(y_homo~x_homo)), residuals(lm(y_homo~x_homo)), 
+     pch=19, col=alpha("steelblue", 0.5),
+     main="✓ Homocedasticidad", xlab="Fitted", ylab="Residuals")
+abline(h=0, col="red", lwd=2)
 
-**AIC (Akaike)**:
-```
-AIC = -2 × log(L) + 2k
-```
-
-**BIC (Bayesian)**:
-```
-BIC = -2 × log(L) + k × log(n)
-```
-
-**Interpretación**:
-- **Menor es mejor**
-- Balancean ajuste con complejidad
-- BIC penaliza más que AIC
-
----
-
-# Significancia estadística
-
-## Test t para coeficientes individuales
-
-**Hipótesis**:
-- H₀: βⱼ = 0 (variable no tiene efecto)
-- H₁: βⱼ ≠ 0 (variable sí tiene efecto)
-
-**Estadístico t**:
-```
-t = β̂ⱼ / SE(β̂ⱼ)
-```
-
---
-
-**P-value**:
-- p < 0.05: Variable significativa al 5%
-- p < 0.01: Significativa al 1%
-- p > 0.05: No significativa
-
----
-
-# Intervalos de confianza
-
-**IC al 95% para βⱼ**:
-```
-β̂ⱼ ± 1.96 × SE(β̂ⱼ)
-```
-
-**Interpretación**:
-- "Con 95% de confianza, el verdadero efecto está entre [a, b]"
-- Si incluye 0: no significativo
-- Si no incluye 0: significativo
-
---
-
-**Ejemplo**:
-```
-Educación: 
-  Coeficiente: 5000
-  IC 95%: [3200, 6800]
+# Heteroscedasticidad
+x_hetero <- rnorm(100)
+y_hetero <- 2 + 3*x_hetero + rnorm(100, sd=abs(x_hetero))
+plot(fitted(lm(y_hetero~x_hetero)), residuals(lm(y_hetero~x_hetero)), 
+     pch=19, col=alpha("darkred", 0.5),
+     main="✗ Heteroscedasticidad", xlab="Fitted", ylab="Residuals")
+abline(h=0, col="red", lwd=2)
 ```
 
 ---
 
-# Significancia vs Relevancia práctica
+# Tests Formales de Heteroscedasticidad
 
-⚠️ **Distinción crucial**:
-
-**Significancia estadística** ≠ **Relevancia práctica**
-
---
-
-**Ejemplo**:
-```
-Coeficiente: 0.50
-Error estándar: 0.10
-p-value: < 0.001
-```
-
-Estadísticamente significativo, pero... ¿50 centavos es relevante?
-
---
-
-**Con muestras grandes**: cualquier efecto puede ser significativo
-
-**Reporte apropiado**: Magnitud + significancia + contexto
-
----
-
-# Métricas de predicción (ML)
-
-**RMSE** (Root Mean Squared Error):
-```
-RMSE = √[Σ(yᵢ - ŷᵢ)² / n]
-```
-- Misma unidad que Y
-- Penaliza errores grandes
-
-**MAE** (Mean Absolute Error):
-```
-MAE = Σ|yᵢ - ŷᵢ| / n
-```
-- Robusta a outliers
-- Interpretación simple
-
----
-
-# Train-Test split
-
-**Validación out-of-sample**:
-
-```r
-# Dividir datos
-train_index <- sample(1:n, 0.7*n)
-train <- data[train_index, ]
-test <- data[-train_index, ]
-
-# Entrenar
-modelo <- lm(y ~ x, data = train)
-
-# Evaluar
-pred <- predict(modelo, test)
-rmse_test <- sqrt(mean((test$y - pred)^2))
-```
-
---
-
-**Por qué importa**:
-- R² en train puede engañar
-- Test RMSE es verdadera medida
-- Si RMSE_test >> RMSE_train: **overfitting**
-
----
-
-class: inverse, center, middle
-
-# Causalidad vs Correlación
-
----
-
-# El problema fundamental
-
-**Pregunta causal**: ¿Efecto de educación universitaria sobre ingresos?
-
-**Problema**: No observamos misma persona con y sin título
-
---
-
-**Sesgo de selección**:
-- Personas que van a universidad son **diferentes**
-- Habilidad, motivación → afectan tanto probabilidad de ir como ingresos
-
---
-
-**Regresión simple**:
-```r
-lm(ingresos ~ universitario)
-```
-
-Captura **correlación**, no causalidad
-
----
-
-# El rol de las variables de control
-
-**Idea**: Controlar por **confusores**
-
-```r
-# Modelo ingenuo (sesgado)
-lm(ingresos ~ universitario)
-
-# Modelo con controles (menos sesgado)
-lm(ingresos ~ universitario + habilidad + 
-              contexto_familiar + educacion_padres)
-```
-
---
-
-**Supuesto fuerte**: Después de controlar, no hay otros confusores
-
-**Problema**: ¿Cómo sabemos que controlamos todo?
-
----
-
-# Estrategias para inferencia causal
-
-## 1. Variables Instrumentales (IV)
-
-Encontrar Z que:
-- Afecta X (educación)
-- NO afecta Y (ingresos) directamente
-- NO correlacionada con confusores
-
-**Ejemplo**: Proximidad a universidad
-
----
-
-## 2. Difference-in-Differences (DiD)
-
-Para evaluación de políticas:
-- Grupo tratado vs control
-- Antes vs después
-
-**Ejemplo**: Efecto de salario mínimo en empleo
-
----
-
-## 3. Regression Discontinuity (RD)
-
-Cuando hay cutoff arbitrario:
-- Ejemplo: Becas para puntaje > 75
-- Comparar alumnos cerca del cutoff
-
-**Supuesto**: Cerca del cutoff, alumnos similares
-
----
-
-# Correlación para predicción
-
-**En ML, causalidad no es necesaria**:
-
-```r
-modelo_churn <- glm(churn ~ saldo + transacciones + 
-                            edad + productos + ...,
-                    family = binomial)
-```
-
-**No importa**:
-- Si saldo causa churn
-- Si churn causa cambio en saldo
-- Si ambos son causados por tercera variable
-
-**Importa**: ¿Predice bien?
-
----
-
-# Resumen: Tres objetivos
-
-| Objetivo | Pregunta | Método | Causalidad |
-|----------|----------|--------|-----------|
-| **Descripción** | ¿Qué se asocia con Y? | Regresión múltiple | No |
-| **Predicción** | ¿Cuál será Y? | ML + validación | No |
-| **Causalidad** | ¿Efecto de X en Y? | Diseño causal | Sí ✓ |
-
---
-
-**Errores comunes**:
-- ❌ Regresión para causalidad sin diseño
-- ❌ Interpretar correlación como causalidad
-- ❌ "Controlar por todo" no garantiza causalidad
-
----
-
-class: inverse, center, middle
-
-# Vulneración de Supuestos
-
----
-
-# 1. Multicolinealidad
-
-**Definición**: Variables independientes **altamente correlacionadas**
-
-**Ejemplos**:
-- Edad y Experiencia (corr ≈ 0.9)
-- PIB y Consumo (corr ≈ 0.95)
-
---
-
-**Detección**:
-```r
-# VIF (Variance Inflation Factor)
-library(car)
-vif(modelo)
-# VIF > 10: problemático
-```
-
----
-
-# Consecuencias de multicolinealidad
-
-✅ **No afecta**:
-- Coeficientes insesgados
-- Predicciones válidas
-- R²
-
---
-
-❌ **Sí afecta**:
-- **Alta varianza** de coeficientes
-- Dificulta significancia individual
-- Signos contraintuitivos
-- Coeficientes inestables
-
----
-
-# Soluciones para multicolinealidad
-
-**1. Eliminar variables redundantes**
-```r
-# Elegir solo una
-modelo <- lm(salario ~ educacion + experiencia)
-```
-
-**2. Combinar variables**
-```r
-indice_habilidad <- (verbal + matematica) / 2
-```
-
-**3. Aumentar n** (si posible)
-
-**4. Regularización** (Ridge) - enfoque ML
-
-**5. PCA** - pierde interpretabilidad
-
----
-
-# Cuándo preocuparse
-
-**No es problema si**:
-- Solo importa predicción
-- Variables correlacionadas no son centrales
-- VIF < 5
-
-**Es problema si**:
-- Quieres interpretar coeficientes individuales
-- VIF > 10
-- Coeficientes cambian mucho
-- Signos inesperados
-
----
-
-# 2. Heteroscedasticidad
-
-**Definición**: Varianza del error **no es constante**
-
-**Ejemplos en economía**:
-- Ingresos: Mayor varianza para alta educación
-- Gasto: Mayor varianza para alto ingreso
-- Retornos: Mayor varianza en crisis
-
---
-
-**Detección**:
-```r
-# Gráfico
-plot(modelo, which = 1)
-
+**Test de Breusch-Pagan:**
+```{r}
 # Test de Breusch-Pagan
-library(lmtest)
-bptest(modelo)
+bptest(modelo_multiple)
+```
+
+--
+
+**Interpretación:**
+- H₀: Homocedasticidad (varianza constante)
+- H₁: Heteroscedasticidad
+- p-valor = 0.014 < 0.05 → **Rechazamos H₀**
+- **Hay evidencia de heteroscedasticidad**
+
+---
+
+# Test de White (más general)
+```{r}
+# Test de White (incluye términos cuadráticos)
+bptest(modelo_multiple, ~ educ + exper + tenure + 
+         I(educ^2) + I(exper^2) + I(tenure^2), data = wage1)
+```
+
+--
+
+**Interpretación:**
+- Test más general que Breusch-Pagan
+- También detecta formas no lineales de heteroscedasticidad
+- p-valor < 0.05 → Confirmamos heteroscedasticidad
+
+---
+
+# SOLUCIÓN: Errores Robustos (Errores de White)
+
+**Idea:** Corregir los errores estándar sin cambiar los coeficientes
+```{r}
+# Modelo original (errores normales)
+summary(modelo_multiple)$coefficients
 ```
 
 ---
 
-# Consecuencias
+# Comparación: Errores Normales vs Robustos
+```{r}
+# Errores robustos usando sandwich
+coeftest(modelo_multiple, vcov = vcovHC(modelo_multiple, type = "HC1"))
+```
 
-✅ **No afecta**:
-- Coeficientes insesgados
-- Predicciones puntuales
-- R²
-
---
-
-❌ **Sí afecta**:
-- **Errores estándar incorrectos**
-- **Tests t y F inválidos**
-- **IC incorrectos**
-
-**Gravedad**: Moderada (solo inferencia)
+**¿Qué cambió?**
+- Los coeficientes son idénticos
+- Los errores estándar son diferentes
+- Los p-valores cambian ligeramente
+- La significancia puede cambiar en casos borderline
 
 ---
 
-# Soluciones
+# Visualización de la Diferencia
+```{r echo=FALSE}
+# Crear tabla comparativa
+normal_se <- sqrt(diag(vcov(modelo_multiple)))
+robust_se <- sqrt(diag(vcovHC(modelo_multiple, type = "HC1")))
 
-## 1. Errores estándar robustos ⭐ Más común
+comparacion <- data.frame(
+  Variable = names(coef(modelo_multiple)),
+  Coeficiente = coef(modelo_multiple),
+  SE_Normal = normal_se,
+  SE_Robusto = robust_se,
+  Diferencia = ((robust_se - normal_se)/normal_se * 100)
+)
 
-```r
-library(sandwich)
-library(lmtest)
+kable(comparacion, digits = 3, 
+      caption = "Comparación de Errores Estándar") %>%
+  kable_styling(font_size = 14)
+```
 
+**Los errores robustos son generalmente mayores** (más conservadores)
+
+---
+
+# ¿Cuándo Usar Errores Robustos?
+
+**Recomendación práctica:**
+
+✅ **SIEMPRE úsalos en datos de corte transversal**
+- Es la práctica estándar en economía
+- No se pierde nada si hay homocedasticidad
+- Proteges tu inferencia si hay heteroscedasticidad
+```{r eval=FALSE}
+# Tu workflow estándar debería ser:
+modelo <- lm(Y ~ X1 + X2, data = datos)
 coeftest(modelo, vcov = vcovHC(modelo, type = "HC1"))
 ```
 
-**Interpretación**:
-- Coeficientes iguales
-- SE corregidos
-- Inferencia válida
+--
+
+⚠️ **No son necesarios para:**
+- Series de tiempo (hay otras correcciones)
+- Datos de panel (efectos fijos/aleatorios)
 
 ---
 
-## 2. Weighted Least Squares (WLS)
+# PROBLEMA 3: Endogeneidad (Mención Breve)
 
-```r
-modelo_wls <- lm(salario ~ educacion,
-                 weights = 1/educacion)
-```
+**¿Qué es?**
+- Violación del supuesto de exogeneidad: $E[u|X] \neq 0$
+- Las X están correlacionadas con el error
 
-**Ventaja**: Más eficiente  
-**Desventaja**: Requiere conocer estructura
+**Causas principales:**
+
+1. **Variables omitidas:** Olvidamos incluir Z relevante que se correlaciona con X
+2. **Error de medición:** X está medido con error
+3. **Simultaneidad:** Y también afecta a X (causalidad reversa)
 
 --
 
-## 3. Transformación logarítmica
+**Consecuencia:** Estimadores son **SESGADOS** (no solo ineficientes)
 
-```r
-modelo_log <- lm(log(salario) ~ educacion)
+**En esta clase:** Solo lo reconocemos, no lo resolvemos
+- Solución requiere Variables Instrumentales (otra clase)
+- Nuestro β describe asociación, no causalidad
+
+---
+
+# Ejemplo Conceptual: Variable Omitida
+
+**Modelo verdadero:**
+$$Salario = \beta_0 + \beta_1 Educacion + \beta_2 Habilidad + u$$
+
+**Modelo estimado (habilidad no observable):**
+$$Salario = \alpha_0 + \alpha_1 Educacion + e$$
+
+--
+
+**Problema:**
+- Habilidad está en el error (e)
+- Habilidad se correlaciona con Educación (personas más hábiles estudian más)
+- $Cov(Educacion, e) \neq 0$ → ¡Endogeneidad!
+- $\alpha_1$ está **sesgado** (probablemente sobreestima el efecto de educación)
+
+--
+
+**Mensaje clave:** Nuestras regresiones describen asociaciones. La causalidad requiere más supuestos o diseño experimental.
+
+---
+
+class: inverse, center, middle
+
+# Bloque 4
+## Workflow y Buenas Prácticas
+
+---
+
+# Flujo de Trabajo Recomendado
+
+**1. EXPLORACIÓN**
+```{r eval=FALSE}
+# Estadísticas descriptivas
+summary(datos)
+# Correlaciones
+cor(datos)
+# Gráficos exploratorios
+plot(datos)
 ```
 
-**Por qué funciona**: Comprime rango de Y
+**2. ESPECIFICACIÓN**
+- Elegir variables relevantes (teoría económica)
+- Decidir forma funcional (lineal, log, cuadrática)
 
----
-
-# Recomendación práctica
-
-**En econometría moderna**:
-
-✅ **Siempre usar errores robustos**
-- Estándar en papers
-- No hace daño si no hay hetero
-- Protege contra hetero no detectada
-
-**En ML**:
-- Menos relevante (no hacemos inferencia)
-- Si importa predicción, no es problema
-
----
-
-# 3. Endogeneidad
-
-**Definición**: X correlacionadas con error
-
-```
-Cov(X, ε) ≠ 0
+**3. ESTIMACIÓN**
+```{r eval=FALSE}
+modelo <- lm(Y ~ X1 + X2, data = datos)
 ```
 
-**Consecuencia**: **Sesgo en coeficientes**
-
-⚠️ **El problema más grave**
-
 ---
 
-# Causas de endogeneidad
+# Flujo de Trabajo (continuación)
 
-## 1. Variables omitidas
-
-```r
-Salario = β₀ + β₁ × Educación + ε
+**4. DIAGNÓSTICO**
+```{r eval=FALSE}
+# Gráficos de residuos
+plot(modelo)
+# Multicolinealidad
+vif(modelo)
+# Heteroscedasticidad
+bptest(modelo)
 ```
 
-Omitimos **Habilidad**:
-- Afecta Salario (está en ε)
-- Correlacionada con Educación
-
-→ β̂₁ **sesgado hacia arriba**
-
----
-
-## 2. Simultaneidad
-
-**Ejemplo**: Oferta y demanda
-```r
-Cantidad = β₀ + β₁ × Precio + ε
+**5. CORRECCIÓN** (si es necesario)
+```{r eval=FALSE}
+# Errores robustos
+coeftest(modelo, vcov = vcovHC(modelo, type = "HC1"))
 ```
 
-- Precio afecta Cantidad
-- Cantidad también afecta Precio
-
-→ β̂₁ **sesgado**
-
----
-
-## 3. Errores de medición
-
-**Ejemplo**: Educación reportada con error
-
-Si usamos Educación* en regresión:
-- β̂₁ **sesgado hacia cero** (attenuation bias)
+**6. INTERPRETACIÓN Y REPORTE**
+- Presentar resultados de forma clara
+- Ser honesto sobre limitaciones
 
 ---
 
-# Soluciones
+# Selección Entre Modelos
+```{r}
+# Tres modelos candidatos
+m1 <- lm(log(wage) ~ educ, data = wage1)
+m2 <- lm(log(wage) ~ educ + exper, data = wage1)
+m3 <- lm(log(wage) ~ educ + exper + tenure, data = wage1)
 
-## 1. Variables Instrumentales (IV)
+# Comparar con criterios de información
+data.frame(
+  Modelo = c("M1: educ", "M2: educ + exper", "M3: educ + exper + tenure"),
+  R2_adj = c(summary(m1)$adj.r.squared, 
+             summary(m2)$adj.r.squared, 
+             summary(m3)$adj.r.squared),
+  AIC = c(AIC(m1), AIC(m2), AIC(m3)),
+  BIC = c(BIC(m1), BIC(m2), BIC(m3))
+) %>% 
+  kable(digits = 3) %>%
+  kable_styling(font_size = 14)
+```
 
-Encontrar Z que:
-1. Correlacionada con X
-2. NO correlacionada con ε
+**Menor AIC/BIC es mejor** → M3 es el mejor modelo
 
-```r
-library(AER)
-modelo_iv <- ivreg(
-  salario ~ educacion | proximidad_universidad
+---
+
+# Test de Ramsey (RESET)
+
+**¿Está bien especificado el modelo?**
+```{r}
+# Test RESET
+resettest(modelo_multiple, power = 2:3)
+```
+
+--
+
+**Interpretación:**
+- H₀: El modelo está correctamente especificado
+- H₁: Hay problemas de especificación (forma funcional incorrecta, **variables omitidas -depende el manual-**)
+- p-valor < 0.05 → Posible problema de especificación
+- **Acción:** Considerar transformaciones o variables adicionales
+
+---
+
+# Reporte Profesional: stargazer
+```{r results='asis', eval=FALSE}
+stargazer(m1, m2, m3, 
+          type = "text",
+          title = "Determinantes del Salario",
+          dep.var.labels = "Log(Salario)",
+          covariate.labels = c("Educación", "Experiencia", "Antigüedad"),
+          se = list(
+            sqrt(diag(vcovHC(m1, type="HC1"))),
+            sqrt(diag(vcovHC(m2, type="HC1"))),
+            sqrt(diag(vcovHC(m3, type="HC1")))
+          ),
+          notes = "Errores estándar robustos entre paréntesis",
+          notes.append = FALSE)
+```
+
+**Ventajas:**
+- Formato profesional
+- Múltiples modelos lado a lado
+- Fácil de exportar a LaTeX, HTML, texto
+
+---
+
+# Tabla de Resultados
+```{r echo=TRUE,eval = F, results='asis'}
+library(modelsummary)
+modelos <- list(
+  "Modelo 1" = m1,
+  "Modelo 2" = m2,
+  "Modelo 3" = m3
 )
+
+modelsummary(modelos,output = '',
+             vcov = "HC1",
+             stars = TRUE,
+             gof_map = c("nobs", "r.squared", "adj.r.squared"),
+             coef_rename = c("educ" = "Educación",
+                            "exper" = "Experiencia",
+                            "tenure" = "Antigüedad"),
+             title = "Determinantes del Log(Salario)")
 ```
 
 ---
 
-## 2. Variables de control
+# Checklist de Buenas Prácticas
 
-```r
-# Menos sesgado
-lm(salario ~ educacion + habilidad + 
-            contexto_familiar)
+✅ **SIEMPRE hacer:**
+
+1. Explorar datos antes de modelar
+2. Justificar elección de variables (teoría)
+3. Reportar $R^2$ ajustado (no solo $R^2$)
+4. Verificar multicolinealidad (VIF)
+5. Hacer gráficos de residuos
+6. Testear heteroscedasticidad
+7. **Usar errores robustos en corte transversal**
+8. Interpretar magnitud Y significancia
+9. Ser honesto sobre limitaciones
+10. Documentar todo tu código
+
+---
+
+# Checklist de Buenas Prácticas (cont.)
+
+❌ **NUNCA hacer:**
+
+1. Agregar variables solo para mejorar $R^2$
+2. Eliminar observaciones sin justificación
+3. Omitir variables relevantes conocidas
+4. Ignorar diagnósticos
+5. Interpretar correlación como causalidad sin justificación
+6. Reportar solo resultados significativos (sesgo de publicación)
+7. Olvidar la interpretación económica
+
+
+---
+
+# Ejemplo Integrador Completo
+```{r}
+# 1. DATOS
+data(wage1)
+
+# 2. EXPLORACIÓN
+summary(wage1[, c("wage", "educ", "exper", "female")])
 ```
 
-**Limitación**: Solo si variable omitida es observable
-
 ---
 
-## 3. Panel data con efectos fijos
+# Ejemplo Integrador (cont.)
+```{r}
+# 3. ESPECIFICACIÓN Y ESTIMACIÓN
+modelo_final <- lm(log(wage) ~ educ + exper + I(exper^2) + female, 
+                   data = wage1)
 
-```r
-library(plm)
-modelo_fe <- plm(salario ~ educacion,
-                 model = "within")
-```
-
-**Idea**: Controla características no observables constantes
-
----
-
-## 4. Difference-in-Differences
-
-```r
-modelo_did <- lm(outcome ~ tratado * post)
+# 4. DIAGNÓSTICO
+vif(modelo_final)
 ```
 
 ---
 
-## 5. Regression Discontinuity
-
-```r
-modelo_rd <- lm(outcome ~ tratado + running_var +
-                          tratado:running_var)
+# Ejemplo Integrador (cont.)
+```{r}
+# Test de heteroscedasticidad
+bptest(modelo_final)
+```
+```{r}
+# 5. RESULTADOS CON ERRORES ROBUSTOS
+coeftest(modelo_final, vcov = vcovHC(modelo_final, type = "HC1"))
 ```
 
 ---
 
-# Cuándo preocuparse
-
-**Alta prioridad si**:
-- Objetivo es causalidad
-- Sospecha teórica de endogeneidad
-- Coeficientes inesperados
-
-**Baja prioridad si**:
-- Objetivo es solo predicción
-- Variables claramente exógenas
-
----
-
-# Resumen de problemas
-
-| Problema | Consecuencia | Solución | Dificultad |
-|----------|-------------|----------|-----------|
-| **Multicolinealidad** | Alta varianza | Eliminar vars | Baja |
-| **Heteroscedasticidad** | SE incorrectos | Errores robustos | Muy baja |
-| **Autocorrelación** | SE incorrectos | Errores HAC | Baja |
-| **Endogeneidad** | Sesgo | IV, diseño causal | **Alta** |
-
----
-
-class: inverse, center, middle
-
-# Diagnóstico Visual
-
----
-
-# ¿Por qué gráficos?
-
-- Tests dicen **si** hay problema
-- Gráficos muestran **qué tipo** y **dónde**
-- Algunos problemas son obvios visualmente
-- Ayudan a identificar outliers influyentes
-
----
-
-# Los 4 gráficos fundamentales
-
-```r
+# Ejemplo Integrador: Gráficos de Diagnóstico
+```{r fig.height=6}
 par(mfrow = c(2, 2))
-plot(modelo)
+plot(modelo_final)
 ```
 
-1. Residuals vs Fitted
-2. Normal Q-Q
-3. Scale-Location
-4. Residuals vs Leverage
-
 ---
 
-# 1. Residuals vs Fitted
-
-**Qué muestra**: Residuos vs valores ajustados
-
-**Qué buscar**:
-- ✅ **Bueno**: Nube sin patrón alrededor de 0
-- ❌ **Malo**:
-  - Patrón curvo → No linealidad
-  - Fan shape → Heteroscedasticidad
-  - Grupos separados → Variable omitida
-
-**El más importante**
-
----
-
-# 2. Normal Q-Q
-
-**Qué muestra**: Cuantiles residuos vs normal teórica
-
-**Qué buscar**:
-- ✅ **Bueno**: Puntos siguen línea diagonal
-- ❌ **Malo**:
-  - Colas pesadas
-  - Asimetría
-
-**Importancia**:
-- Normalidad para inferencia (tests)
-- Con n > 100, menos crítico
-
----
-
-# 3. Scale-Location
-
-**Qué muestra**: √|Residuos estandarizados| vs fitted
-
-**Qué buscar**:
-- ✅ **Bueno**: Línea horizontal
-- ❌ **Malo**: Línea con pendiente
-
-**Ventaja**: Más fácil detectar hetero
-
----
-
-# 4. Residuals vs Leverage
-
-**Qué muestra**: Residuos vs leverage (influencia)
-
-**Conceptos**:
-- **Leverage**: Qué tan extrema es X
-- **Distancia de Cook**: Influencia en coeficientes
-
-**Qué buscar**:
-- ✅ **Bueno**: Puntos dentro de líneas Cook
-- ❌ **Malo**: Puntos fuera → outliers influyentes
-
----
-
-# Workflow de diagnóstico
-
-**Paso 1**: Ajustar modelo
-
-**Paso 2**: Plot 4 gráficos
-```r
-par(mfrow = c(2,2))
-plot(modelo)
+# Interpretación Final del Modelo
+```{r echo=FALSE}
+summary(modelo_final)$coefficients
 ```
 
-**Paso 3**: Revisar problemas
+**Interpretaciones (en términos porcentuales):**
 
-**Paso 4**: Diagnóstico específico
-```r
-bptest(modelo)  # Hetero
-vif(modelo)     # Multicolin
+- **Educación:** +1 año → salario aumenta ~9.2%
+- **Experiencia:** Efecto no lineal (cuadrático)
+  - Inicialmente positivo, luego se aplana
+  - Máximo en: $-\beta_{exper}/(2\times\beta_{exper^2}) = -0.041/(2\times-0.0007) \approx 29$ años
+- **Género:** Mujeres ganan ~30% menos (manteniendo educación y experiencia constantes)
+
+---
+
+# Visualización del Efecto de Experiencia
+```{r echo=FALSE, fig.height=5}
+# Crear secuencia de experiencia
+exper_seq <- seq(0, 50, by = 1)
+# Predecir (manteniendo otras variables en su media)
+pred_data <- data.frame(
+  exper = exper_seq,
+  educ = mean(wage1$educ),
+  female = 0
+)
+pred_data$pred_wage <- predict(modelo_final, newdata = pred_data, type = "response")
+
+ggplot(pred_data, aes(x = exper, y = exp(pred_wage))) +
+  geom_line(color = "steelblue", size = 1.5) +
+  labs(title = "Efecto de la Experiencia sobre el Salario (Hombres, educación promedio)",
+       x = "Años de Experiencia",
+       y = "Salario Predicho ($)") +
+  theme_minimal(base_size = 14)
 ```
 
-**Paso 5**: Corregir
+---
+
+# Recursos Adicionales
+
+**Paquetes útiles:**
+- `car`: Diagnósticos (VIF, etc.)
+- `lmtest`: Tests de especificación
+- `sandwich`: Errores robustos
+- `stargazer` / `modelsummary`: Tablas bonitas
+- `ggplot2`: Visualizaciones
+- `wooldridge`: Datasets de práctica
+
+**Libros recomendados:**
+- Wooldridge: "Introducción a la Econometría"
+- Gujarati: "Econometría"
+- Stock & Watson: "Introduction to Econometrics"
+
+**Online:**
+- R for Data Science: https://r4ds.had.co.nz/
+- Cross Validated (Stack Exchange para estadística)
 
 ---
 
 class: inverse, center, middle
 
-# Síntesis
+# Resumen Final
 
 ---
 
-# Puntos clave
+# Puntos Clave para Recordar
 
-1. **Regresión lineal**: Herramienta flexible para causal, predicción, descripción
+**1. Interpretación:**
+- Los coeficientes describen **asociaciones**, no necesariamente causalidad
+- Diferentes formas funcionales tienen diferentes interpretaciones
+- Mantener todo lo demás constante (ceteris paribus)
 
-2. **Supuestos Gauss-Markov**: Garantizan que MCO sea BLUE
+**2. Supuestos:**
+- MCO requiere varios supuestos para ser óptimo
+- Verificar siempre con diagnósticos
+- Corregir cuando sea necesario (especialmente heteroscedasticidad)
 
-3. **Interpretación**: Depende de especificación (nivel-nivel, log-log, etc.)
-
-4. **Econometría vs ML**: Sesgo crítico vs performance predictiva
-
-5. **Causalidad**: Requiere más que regresión
-
-6. **Problemas**: Endogeneidad más grave; hetero fácil de corregir
-
-7. **Diagnóstico visual**: Fundamental para detectar problemas
-
----
-
-# Próxima clase
-
-## Implementación en R
-
-- Carga y exploración de wage1
-- Especificación de modelos
-- Interpretación con `broom`
-- Diagnóstico con `car` y `lmtest`
-- Corrección de heteroscedasticidad
-- Variables instrumentales con `AER`
-- Validación out-of-sample
-- Casos prácticos completos
+**3. Práctica:**
+- Explorar → Especificar → Estimar → Diagnosticar → Corregir → Interpretar
+- Usar errores robustos por defecto en corte transversal
+- Reportar de forma honesta y completa
 
 ---
 
@@ -1493,18 +1055,8 @@ class: inverse, center, middle
 
 ---
 
-# Referencias
+class: center, middle
 
-**Textos fundamentales**:
-1. Wooldridge, J. (2019). *Introductory Econometrics*, 7th ed.
-2. James, G. et al. (2021). *An Introduction to Statistical Learning*, 2nd ed.
-3. Angrist, J. & Pischke, J.S. (2009). *Mostly Harmless Econometrics*
+# ¡Gracias!
 
-**Papers clásicos**:
-- Rubin, D. (1974). "Estimating Causal Effects of Treatments"
-- White, H. (1980). "Heteroskedasticity-Consistent Covariance Matrix"
-- Card, D. (1993). "Using Geographic Variation in College Proximity"
-
-**Recursos online**:
-- R for Data Science (r4ds.had.co.nz)
-- Causal Inference: The Mixtape (mixtape.scunning.com)
+### Contacto: nsidicaro.fce@gmail.com
