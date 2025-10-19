@@ -118,6 +118,37 @@ Si $F$ es grande → la variación entre grupos es mucho mayor que dentro de gru
 
 ---
 
+# Descomposición de ANOVA
+
+.pull-left[
+$$SST = SSB + SSW$$
+
+**Suma de Cuadrados Totales (SST):**
+$$SST = \sum_{i=1}^{k} \sum_{j=1}^{n_i} (y_{ij} - \bar{y})^2$$
+
+**Suma de Cuadrados Entre Grupos (SSB):**
+$$SSB = \sum_{i=1}^{k} n_i(\bar{y}_i - \bar{y})^2$$
+
+**Suma de Cuadrados Dentro de Grupos (SSW):**
+$$SSW = \sum_{i=1}^{k} \sum_{j=1}^{n_i} (y_{ij} - \bar{y}_i)^2$$
+]
+
+.pull-right[
+**Notación:**
+
+- $k$ = número de grupos
+
+- $n_i$ = número de observaciones en el grupo $i$
+
+- $y_{ij}$ = observación $j$ del grupo $i$
+
+- $\bar{y}_i$ = media del grupo $i$
+
+- $\bar{y}$ = media general
+]
+
+---
+
 # Generación de datos: Salarios por sector
 
 ```{r create-data, echo=TRUE}

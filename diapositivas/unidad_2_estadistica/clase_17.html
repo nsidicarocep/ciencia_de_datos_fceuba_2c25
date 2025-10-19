@@ -1,14 +1,13 @@
 <!DOCTYPE html>
 <html lang="" xml:lang="">
   <head>
-    <title>Regresión Lineal Aplicada</title>
+    <title>Regresión lineal aplicada</title>
     <meta charset="utf-8" />
     <meta name="author" content="Nicolás Sidicaro" />
-    <meta name="date" content="2025-10-16" />
     <script src="libs/header-attrs/header-attrs.js"></script>
     <link href="libs/remark-css/default.css" rel="stylesheet" />
-    <link href="libs/remark-css/default-fonts.css" rel="stylesheet" />
-    <link href="libs/remark-css/hygge.css" rel="stylesheet" />
+    <link href="libs/remark-css/metropolis.css" rel="stylesheet" />
+    <link href="libs/remark-css/metropolis-fonts.css" rel="stylesheet" />
     <script src="libs/kePrint/kePrint.js"></script>
     <link href="libs/lightable/lightable.css" rel="stylesheet" />
   </head>
@@ -17,22 +16,20 @@
 class: center, middle, inverse, title-slide
 
 .title[
-# Regresión Lineal Aplicada
+# Regresión lineal aplicada
 ]
 .subtitle[
-## Fundamentos, Diagnósticos y Práctica en R
+## Unidad 2: Estadística Básica y Aplicada
 ]
 .author[
 ### Nicolás Sidicaro
 ]
-.institute[
-### FCE UBA
-]
 .date[
-### 2025-10-16
+### Octubre 2025
 ]
 
 ---
+
 
 
 
@@ -509,24 +506,15 @@ modelo_ocupacion &lt;- lm(log(wage) ~ educ + exper + ocupacion_f, data = wage1)
 ## -1.81330 -0.32272 -0.03493  0.29406  1.58048 
 ## 
 ## Coefficients:
-##                                         Estimate Std. Error t value Pr(&gt;|t|)
-## (Intercept)                             0.165269   0.107252   1.541 0.123942
-## educ                                    0.092331   0.007455  12.386  &lt; 2e-16
-## exper                                   0.009623   0.001519   6.333 5.22e-10
-## ocupacion_fConstruccion                 0.323017   0.097523   3.312 0.000990
-## ocupacion_fIndustria                    0.228574   0.068227   3.350 0.000866
-## ocupacion_fOtros servicios              0.235006   0.047563   4.941 1.05e-06
-## ocupacion_fServicios                   -0.123688   0.070888  -1.745 0.081605
-## ocupacion_fTransporte y comunicaciones  0.226813   0.099782   2.273 0.023430
-##                                           
-## (Intercept)                               
-## educ                                   ***
-## exper                                  ***
-## ocupacion_fConstruccion                ***
-## ocupacion_fIndustria                   ***
-## ocupacion_fOtros servicios             ***
-## ocupacion_fServicios                   .  
-## ocupacion_fTransporte y comunicaciones *  
+##                                         Estimate Std. Error t value Pr(&gt;|t|)    
+## (Intercept)                             0.165269   0.107252   1.541 0.123942    
+## educ                                    0.092331   0.007455  12.386  &lt; 2e-16 ***
+## exper                                   0.009623   0.001519   6.333 5.22e-10 ***
+## ocupacion_fConstruccion                 0.323017   0.097523   3.312 0.000990 ***
+## ocupacion_fIndustria                    0.228574   0.068227   3.350 0.000866 ***
+## ocupacion_fOtros servicios              0.235006   0.047563   4.941 1.05e-06 ***
+## ocupacion_fServicios                   -0.123688   0.070888  -1.745 0.081605 .  
+## ocupacion_fTransporte y comunicaciones  0.226813   0.099782   2.273 0.023430 *  
 ## ---
 ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
 ## 
@@ -714,7 +702,7 @@ modelo_sin_multicol &lt;- lm(wage ~ educ + exper + tenure, data = wage1)
 
 ``` r
 # Residuos vs valores ajustados
-plot(modelo_multiple, which = 1, pch = 19, col = alpha("steelblue", 0.5))
+plot(modelo_multiple, which = 1, pch = 19)
 ```
 
 &lt;img src="clase_17_files/figure-html/unnamed-chunk-27-1.png" width="100%" /&gt;

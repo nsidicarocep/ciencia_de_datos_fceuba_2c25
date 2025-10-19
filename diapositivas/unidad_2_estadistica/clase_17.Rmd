@@ -1,19 +1,20 @@
 ---
-title: "Regresión Lineal Aplicada"
-subtitle: "Fundamentos, Diagnósticos y Práctica en R"
+title: "Regresión lineal aplicada"
+subtitle: "Unidad 2: Estadística Básica y Aplicada"
 author: "Nicolás Sidicaro"
-institute: "FCE UBA"
-date: "`r Sys.Date()`"
+date: "Octubre 2025"
+institution: "FCE-UBA"
 output:
   xaringan::moon_reader:
+    css: [default, metropolis, metropolis-fonts]
     lib_dir: libs
-    css: [default, default-fonts, hygge]
     nature:
       highlightStyle: github
       highlightLines: true
       countIncrementalSlides: false
-      ratio: '16:9'
+      ratio: "16:9"
 ---
+
 ```{r setup, include=FALSE}
 options(htmltools.dir.version = FALSE)
 knitr::opts_chunk$set(
@@ -574,7 +575,7 @@ modelo_sin_multicol <- lm(wage ~ educ + exper + tenure, data = wage1)
 # Detección Visual: Gráfico de Residuos
 ```{r fig.height=5.5}
 # Residuos vs valores ajustados
-plot(modelo_multiple, which = 1, pch = 19, col = alpha("steelblue", 0.5))
+plot(modelo_multiple, which = 1, pch = 19)
 ```
 
 **¿Qué buscamos?** Patrones en la dispersión (forma de embudo, curvas, etc.)
@@ -589,7 +590,7 @@ set.seed(123)
 x_homo <- rnorm(100)
 y_homo <- 2 + 3*x_homo + rnorm(100)
 plot(fitted(lm(y_homo~x_homo)), residuals(lm(y_homo~x_homo)), 
-     pch=19, col=alpha("steelblue", 0.5),
+     pch=19, col="steelblue", alpha=0.5,
      main="✓ Homocedasticidad", xlab="Fitted", ylab="Residuals")
 abline(h=0, col="red", lwd=2)
 
@@ -597,7 +598,7 @@ abline(h=0, col="red", lwd=2)
 x_hetero <- rnorm(100)
 y_hetero <- 2 + 3*x_hetero + rnorm(100, sd=abs(x_hetero))
 plot(fitted(lm(y_hetero~x_hetero)), residuals(lm(y_hetero~x_hetero)), 
-     pch=19, col=alpha("darkred", 0.5),
+     pch=19, col="darkred",alpha= 0.5,
      main="✗ Heteroscedasticidad", xlab="Fitted", ylab="Residuals")
 abline(h=0, col="red", lwd=2)
 ```

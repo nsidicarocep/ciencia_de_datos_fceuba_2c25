@@ -4,7 +4,7 @@
     <title>ANOVA y Análisis de Componentes Principales</title>
     <meta charset="utf-8" />
     <meta name="author" content="Nicolás Sidicaro" />
-    <script src="libs/header-attrs-2.29/header-attrs.js"></script>
+    <script src="libs/header-attrs-2.27/header-attrs.js"></script>
     <link href="libs/remark-css-0.0.1/default.css" rel="stylesheet" />
     <link href="libs/remark-css-0.0.1/metropolis.css" rel="stylesheet" />
     <link href="libs/remark-css-0.0.1/metropolis-fonts.css" rel="stylesheet" />
@@ -105,6 +105,37 @@ ANOVA descompone la **varianza total** en dos fuentes:
 `$$F = \frac{MS_{Between}}{MS_{Within}} = \frac{SS_B/(k-1)}{SS_W/(n-k)}$$`
 
 Si `\(F\)` es grande → la variación entre grupos es mucho mayor que dentro de grupos → evidencia contra `\(H_0\)`
+
+---
+
+# Descomposición de ANOVA
+
+.pull-left[
+`$$SST = SSB + SSW$$`
+
+**Suma de Cuadrados Totales (SST):**
+`$$SST = \sum_{i=1}^{k} \sum_{j=1}^{n_i} (y_{ij} - \bar{y})^2$$`
+
+**Suma de Cuadrados Entre Grupos (SSB):**
+`$$SSB = \sum_{i=1}^{k} n_i(\bar{y}_i - \bar{y})^2$$`
+
+**Suma de Cuadrados Dentro de Grupos (SSW):**
+`$$SSW = \sum_{i=1}^{k} \sum_{j=1}^{n_i} (y_{ij} - \bar{y}_i)^2$$`
+]
+
+.pull-right[
+**Notación:**
+
+- `\(k\)` = número de grupos
+
+- `\(n_i\)` = número de observaciones en el grupo `\(i\)`
+
+- `\(y_{ij}\)` = observación `\(j\)` del grupo `\(i\)`
+
+- `\(\bar{y}_i\)` = media del grupo `\(i\)`
+
+- `\(\bar{y}\)` = media general
+]
 
 ---
 
