@@ -1,0 +1,251 @@
+---
+title: "Ejercicios de Análisis de Datos con el Paquete AER"
+author: "Tu Nombre"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    theme: united
+    highlight: tango
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+library(AER)
+library(dplyr)
+library(ggplot2)
+```
+
+# Ejercicio 1: Test de Hipótesis General - Salarios por Género
+
+Utiliza el dataset `CPS1985` que contiene información sobre salarios de 534 individuos.
+
+```{r}
+# Cargar datos
+data("CPS1985")
+head(CPS1985)
+```
+
+**Pregunta:** ¿Existe evidencia estadística de que el salario promedio de los hombres es mayor a $9 por hora? Realiza un test de hipótesis con α = 0.05.
+
+**Tareas:**
+a) Plantea las hipótesis nula y alternativa
+b) Filtra los datos para incluir solo hombres
+c) Realiza el test t apropiado
+d) Interpreta el resultado y la conclusión estadística
+
+```{r}
+# Tu código aquí
+```
+
+---
+
+# Ejercicio 2: Test de Diferencias entre Medias - Comparación de Salarios
+
+Continúa usando el dataset `CPS1985`.
+
+**Pregunta:** ¿Existen diferencias significativas en el salario promedio entre hombres y mujeres? Realiza un test de hipótesis con α = 0.05.
+
+**Tareas:**
+a) Calcula estadísticas descriptivas de salario por género
+b) Verifica la normalidad de los datos (usa gráficos QQ)
+c) Realiza un test t de dos muestras independientes
+d) Calcula e interpreta el intervalo de confianza del 95% para la diferencia de medias
+e) ¿Qué conclusión puedes extraer sobre la brecha salarial?
+
+```{r}
+# Tu código aquí
+```
+
+---
+
+# Ejercicio 3: Test de Proporciones - Sindicalización
+
+Usa el dataset `CPS1985` nuevamente.
+
+**Pregunta:** ¿La proporción de trabajadores sindicalizados difiere significativamente entre el sector sur y el resto del país? Realiza un test de proporciones con α = 0.05.
+
+**Tareas:**
+a) Crea una tabla de contingencia con las variables `south` y `union`
+b) Calcula las proporciones de sindicalización en cada grupo
+c) Realiza un test de proporciones de dos muestras
+d) Interpreta el resultado: ¿hay diferencias regionales significativas?
+
+```{r}
+# Tu código aquí
+```
+
+---
+
+# Ejercicio 4: ANOVA - Análisis de Salarios por Ocupación
+
+Continúa con el dataset `CPS1985`.
+
+**Pregunta:** ¿Existen diferencias significativas en el salario promedio entre las diferentes ocupaciones (variable `occupation`)? Utiliza ANOVA con α = 0.05.
+
+**Tareas:**
+a) Calcula estadísticas descriptivas de salario por ocupación
+b) Crea un gráfico de cajas (boxplot) para visualizar las diferencias
+c) Realiza un ANOVA de un factor
+d) Si el ANOVA es significativo, realiza comparaciones post-hoc (test de Tukey)
+e) Interpreta qué grupos difieren entre sí
+
+```{r}
+# Tu código aquí
+```
+
+---
+
+# Ejercicio 5: Análisis de Componentes Principales (PCA) - Revistas Académicas
+
+Usa el dataset `Journals` que contiene información sobre 180 revistas académicas en economía.
+
+```{r}
+# Cargar datos
+data("Journals")
+head(Journals)
+```
+
+**Pregunta:** Realiza un análisis de componentes principales con las variables numéricas relacionadas con las características de las revistas (suscripciones, citas, precio, etc.).
+
+**Tareas:**
+a) Selecciona las variables numéricas apropiadas para el PCA (excluye variables categóricas)
+b) Estandariza las variables antes del análisis
+c) Realiza el PCA y determina cuántos componentes retener (usa el criterio de Kaiser o scree plot)
+d) Interpreta los loadings de los primeros dos componentes principales
+e) Crea un biplot para visualizar las relaciones entre variables
+
+```{r}
+# Tu código aquí
+```
+
+---
+
+# Ejercicio 6: Regresión Lineal - Determinantes del Salario
+
+Vuelve al dataset `CPS1985`.
+
+**Pregunta:** Construye un modelo de regresión lineal múltiple para explicar el salario en función de la educación, experiencia, género y afiliación sindical.
+
+**Tareas:**
+a) Especifica y estima el modelo: wage ~ education + experience + gender + union
+b) Interpreta los coeficientes estimados
+c) Evalúa la significancia individual de cada variable (test t)
+d) Evalúa la significancia global del modelo (test F y R²)
+e) Verifica los supuestos del modelo (normalidad de residuos, homocedasticidad)
+f) ¿Qué variable tiene el mayor impacto en el salario?
+
+```{r}
+# Tu código aquí
+```
+
+---
+
+# Ejercicio 7: Evaluación de Datos Faltantes - Panel de Ingresos
+
+Usa el dataset `PSID1976` que contiene información sobre participación laboral e ingresos.
+
+```{r}
+# Cargar datos
+data("PSID1976")
+head(PSID1976)
+```
+
+**Pregunta:** Analiza la presencia de datos faltantes en el dataset y determina un plan de acción apropiado.
+
+**Tareas:**
+a) Calcula el número y porcentaje de datos faltantes por variable
+b) Identifica qué variables tienen datos faltantes
+c) Analiza si los datos faltantes siguen algún patrón (MCAR, MAR, MNAR)
+d) Propón estrategias para manejar los datos faltantes (eliminación, imputación)
+e) Si no hay datos faltantes, crea algunos de forma aleatoria y realiza el análisis
+
+```{r}
+# Tu código aquí
+```
+
+---
+
+# Ejercicio 8: Estadísticas Descriptivas Completas - Escuelas de California
+
+Usa el dataset `CASchools` con información sobre 420 escuelas de California.
+
+```{r}
+# Cargar datos
+data("CASchools")
+head(CASchools)
+```
+
+**Pregunta:** Calcula e interpreta un conjunto completo de estadísticas descriptivas para las variables clave del rendimiento estudiantil.
+
+**Tareas:**
+a) Selecciona las variables: `read` (puntaje de lectura), `math` (puntaje de matemáticas), `students` (número de estudiantes), `teachers` (número de maestros)
+b) Para cada variable calcula: media, mediana, desviación estándar, coeficiente de variación, mínimo, máximo, cuartiles
+c) Interpreta el coeficiente de variación: ¿qué variable tiene mayor dispersión relativa?
+d) Crea histogramas para visualizar la distribución de las variables
+e) Identifica valores atípicos usando el criterio del rango intercuartílico
+
+```{r}
+# Tu código aquí
+```
+
+---
+
+# Ejercicio 9: Transformación de Variables - Relación Precio-Suscripciones
+
+Vuelve al dataset `Journals`.
+
+**Pregunta:** Explora la relación entre el precio de las revistas y el número de suscripciones usando transformaciones de variables.
+
+**Tareas:**
+a) Crea un gráfico de dispersión entre `price` y `subs` (suscripciones)
+b) Calcula la correlación entre estas variables
+c) Aplica transformaciones logarítmicas a ambas variables
+d) Crea un nuevo gráfico con las variables transformadas
+e) Compara las correlaciones antes y después de la transformación
+f) Estima una regresión lineal con las variables transformadas e interpreta el coeficiente (elasticidad)
+
+```{r}
+# Tu código aquí
+```
+
+---
+
+# Ejercicio 10: Análisis Integrado - Fertilidad y Educación
+
+Usa el dataset `Fertility` que contiene información sobre decisiones de fertilidad de mujeres.
+
+```{r}
+# Cargar datos
+data("Fertility")
+head(Fertility)
+```
+
+**Pregunta:** Realiza un análisis completo que integre varios métodos estadísticos para explorar la relación entre educación y número de hijos.
+
+**Tareas:**
+a) **Datos faltantes:** Verifica si hay valores faltantes
+b) **Estadísticas descriptivas:** Calcula estadísticas completas para `morekids` y `age` (media, DE, CV)
+c) **Test de hipótesis:** ¿La proporción de mujeres con más de 2 hijos difiere entre niveles educativos?
+d) **ANOVA:** ¿La edad promedio difiere significativamente entre grupos según número de hijos?
+e) **Regresión:** Estima un modelo para predecir si la mujer tendrá más hijos en función de edad, educación y otras variables
+f) **Transformación:** Si es necesario, transforma variables para mejorar el modelo
+g) Presenta conclusiones integradas de tu análisis
+
+```{r}
+# Tu código aquí
+```
+
+---
+
+# Notas Finales
+
+Estos ejercicios te permitirán practicar diferentes técnicas de análisis estadístico usando datos reales de corte transversal. Recuerda siempre:
+
+- Verificar los supuestos de cada test antes de aplicarlo
+- Interpretar los resultados en el contexto del problema
+- Usar visualizaciones para complementar el análisis numérico
+- Reportar medidas de efecto además de significancia estadística
+
+¡Buena suerte con los ejercicios!

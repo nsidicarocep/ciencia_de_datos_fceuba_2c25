@@ -1,0 +1,536 @@
+---
+title: "Reg. con Y dicotomica"
+subtitle: "Unidad 2: Estadística Básica y Aplicada"
+author: "Nicolás Sidicaro"
+date: "Octubre 2025"
+institution: "FCE-UBA"
+output:
+  xaringan::moon_reader:
+    css: [default, metropolis, metropolis-fonts]
+    lib_dir: libs
+    nature:
+      highlightStyle: github
+      highlightLines: true
+      countIncrementalSlides: false
+      ratio: "16:9"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+library(tidyverse)
+library(margins)
+library(sandwich)
+library(lmtest)
+library(caret)
+library(knitr)
+
+# Generar datos de ejemplo
+set.seed(123)
+n <- 1000
+datos <- data.frame(
+  ingreso = rnorm(n, 50000, 15000),
+  score = rnorm(n, 650, 100),
+  edad = rnorm(n, 40, 12)
+)
+datos$ingreso <- pmax(datos$ingreso, 20000)
+datos$score <- pmax(pmin(datos$score, 850), 300)
+datos$edad <- pmax(datos$edad, 18)
+
+# Variable dependiente
+z <- -8 + 0.00008*datos$ingreso + 0.01*datos$score + 0.02*datos$edad
+prob <- 1/(1 + exp(-z))
+datos$aprobo <- rbinom(n, 1, prob)
+```
+
+---
+
+# Introducción y Motivación
+
+### ¿Qué queremos predecir?
+
+**Variable Y que solo toma valores 0 o 1**
+
+Ejemplos:
+
+- Default crediticio (sí/no)
+- Aprobación de crédito (aprobado/rechazado)  
+- Compra de producto (compra/no compra)
+- Recuperación de paciente (recuperado/no recuperado)
+- Participación laboral (trabaja/no trabaja)
+
+**Objetivo**: Modelar la probabilidad de que Y = 1 dado un conjunto de variables X
+
+---
+
+# El Problema con MCO
+
+```{r mco-problema, echo=FALSE, fig.height=4, fig.width=7}
+# Gráfico mostrando el problema con MCO
+x_ejemplo <- seq(300, 850, length.out = 100)
+datos_plot <- datos %>% select(score, aprobo)
+
+ggplot(datos_plot, aes(x = score, y = aprobo)) +
+  geom_point(alpha = 0.3, color = "steelblue") +
+  geom_smooth(method = "lm", se = FALSE, color = "red", linewidth = 1.5) +
+  geom_hline(yintercept = c(0, 1), linetype = "dashed", color = "darkgreen") +
+  labs(title = "Problema: MCO predice probabilidades imposibles",
+       x = "Score Crediticio", 
+       y = "Aprobación (0/1)",
+       caption = "La línea roja muestra predicciones fuera de [0,1]") +
+  theme_minimal(base_size = 14)
+```
+
+**No podemos tener 120% de probabilidad de aprobar un crédito**
+
+---
+
+# Modelo de Probabilidad Lineal (MPL)
+
+## MPL: Idea Básica
+
+**Usar MCO con variable dependiente binaria**
+
+$$Y_i = \beta_0 + \beta_1 X_{1i} + \beta_2 X_{2i} + u_i$$
+
+donde $Y_i \in \{0, 1\}$
+
+**Interpretación directa y sencilla**:
+
+- $\beta_1$ = cambio en la probabilidad cuando $X_1$ aumenta 1 unidad
+- $E[Y_i|X_i] = P(Y_i = 1|X_i) = \beta_0 + \beta_1 X_{1i} + \beta_2 X_{2i}$
+
+**Ventaja principal**: Coeficientes = efectos marginales
+
+---
+
+# MPL: Ejemplo Práctico
+
+```{r mpl-estimacion}
+# Estimar MPL
+modelo_mpl <- lm(aprobo ~ ingreso + score + edad, data = datos)
+summary(modelo_mpl)$coefficients %>% 
+  round(6) %>% 
+  kable()
+```
+
+**Interpretación**: Por cada punto adicional en el score crediticio, la probabilidad de aprobación aumenta 0.8 puntos porcentuales
+
+---
+
+# MPL: Problemas
+
+### 1. Heteroscedasticidad automática
+
+$$Var(u_i|X_i) = P_i(1-P_i)$$
+
+- **Consecuencia**: Errores estándar incorrectos → inferencia inválida
+- **Solución**: Errores robustos (White/HC)
+
+### 2. Predicciones imposibles
+
+- Puede predecir $P < 0$ o $P > 1$
+- No son probabilidades válidas
+
+```{r mpl-predicciones, echo=FALSE}
+pred_mpl <- predict(modelo_mpl)
+cat("Predicciones fuera de rango:\n")
+cat("P < 0:", sum(pred_mpl < 0), "observaciones\n")
+cat("P > 1:", sum(pred_mpl > 1), "observaciones\n")
+```
+
+---
+
+# MPL: Solución - Errores Robustos
+
+```{r mpl-robusto}
+# MPL con errores robustos
+coeftest(modelo_mpl, vcov = vcovHC(modelo_mpl, type = "HC1"))
+```
+
+**Nota**: Los coeficientes son iguales, pero los errores estándar cambian
+
+---
+
+## MPL: ¿Cuándo Usarlo?
+
+✓ **Aproximación rápida** cuando el tiempo es limitado
+
+✓ **Efectos marginales constantes** son razonables
+
+✓ **Interpretación directa** es prioritaria
+
+✓ **Siempre con errores robustos** para inferencia
+
+✗ Evitar si hay muchas predicciones fuera de [0,1]
+
+✗ No usar si la relación es claramente no lineal
+
+---
+
+# Modelos No Lineales: Logit y Probit
+
+## ¿Por Qué Modelos No Lineales?
+
+**Necesitamos garantizar que** $0 \leq P \leq 1$
+
+**Solución**: Usar una función de distribución que transforme la combinación lineal
+
+$$P(Y_i=1|X_i) = F(\beta_0 + \beta_1 X_{1i} + \beta_2 X_{2i})$$
+
+donde $F(\cdot)$ es una función de distribución acumulada
+
+**Dos opciones principales**:
+
+- **Logit**: $F$ es la distribución logística
+- **Probit**: $F$ es la distribución normal estándar
+
+---
+
+# Logit: Función Logística
+
+**Función de distribución logística**:
+
+$$P(Y=1|X) = \frac{e^{\beta_0 + \beta_1 X_1 + \beta_2 X_2}}{1 + e^{\beta_0 + \beta_1 X_1 + \beta_2 X_2}} = \frac{1}{1 + e^{-(\beta_0 + \beta_1 X_1 + \beta_2 X_2)}}$$
+
+**Características**:
+
+- Forma de "S" simétrica
+- Siempre entre 0 y 1
+- Pendiente máxima en P = 0.5
+- Permite interpretar odds-ratios
+
+---
+
+# Probit: Distribución Normal
+
+**Función de distribución normal acumulada**:
+
+$$P(Y=1|X) = \Phi(\beta_0 + \beta_1 X_1 + \beta_2 X_2)$$
+
+donde $\Phi$ es la función de distribución normal estándar
+
+**Características**:
+
+- También forma de "S"
+- Colas más ligeras que Logit
+- Tradición en econometría
+- Resultados muy similares a Logit
+
+---
+
+# Comparación Visual
+
+```{r comparacion-modelos, echo=FALSE, fig.height=5, fig.width=8}
+# Estimar Logit y Probit
+modelo_logit <- glm(aprobo ~ score, data = datos, 
+                    family = binomial(link = "logit"))
+modelo_probit <- glm(aprobo ~ score, data = datos, 
+                     family = binomial(link = "probit"))
+modelo_mpl_simple <- lm(aprobo ~ score, data = datos)
+
+# Crear datos para predicción
+score_seq <- seq(min(datos$score), max(datos$score), length.out = 200)
+pred_data <- data.frame(score = score_seq)
+
+pred_data$mpl <- predict(modelo_mpl_simple, newdata = pred_data)
+pred_data$logit <- predict(modelo_logit, newdata = pred_data, type = "response")
+pred_data$probit <- predict(modelo_probit, newdata = pred_data, type = "response")
+
+# Gráfico
+pred_data %>%
+  pivot_longer(cols = c(mpl, logit, probit), names_to = "modelo", values_to = "prob") %>%
+  ggplot(aes(x = score, y = prob, color = modelo)) +
+  geom_line(linewidth = 1.2) +
+  geom_point(data = datos, aes(x = score, y = aprobo), 
+             inherit.aes = FALSE, alpha = 0.1, color = "gray50") +
+  scale_color_manual(values = c("mpl" = "red", "logit" = "blue", "probit" = "darkgreen"),
+                     labels = c("MPL", "Logit", "Probit")) +
+  labs(title = "Comparación: MPL vs Logit vs Probit",
+       x = "Score Crediticio", y = "P(Aprobación = 1)",
+       color = "Modelo") +
+  theme_minimal(base_size = 14) +
+  theme(legend.position = "bottom")
+```
+
+---
+
+# Estimación en R
+
+```{r modelos-estimacion}
+# Logit
+modelo_logit <- glm(aprobo ~ ingreso + score + edad, 
+                    data = datos, 
+                    family = binomial(link = "logit"))
+
+# Probit
+modelo_probit <- glm(aprobo ~ ingreso + score + edad, 
+                     data = datos, 
+                     family = binomial(link = "probit"))
+```
+
+```{r tabla-comparacion, echo=FALSE}
+# Tabla comparativa
+tibble(
+  Variable = names(coef(modelo_logit)),
+  Logit = round(coef(modelo_logit), 4),
+  Probit = round(coef(modelo_probit), 4)
+) %>% kable()
+```
+
+---
+
+# ¿Logit o Probit?
+
+**Logit**:
+
+- ✓ Más común en la práctica
+- ✓ Interpretación vía odds-ratios
+- ✓ Colas más pesadas (captura eventos extremos)
+
+**Probit**:
+
+- ✓ Tradición econométrica
+- ✓ Útil si asumimos normalidad subyacente
+- ✓ Ligeramente más fácil en modelos multivariados
+
+**En la práctica**: Los resultados son muy similares. La elección depende más de convención del campo que de consideraciones técnicas.
+
+---
+
+# Interpretación de Resultados
+
+## ⚠️ Problema: Los Coeficientes NO son Efectos Marginales
+
+```{r coef-logit, echo=FALSE}
+summary(modelo_logit)$coefficients %>% 
+  round(5) %>% 
+  kable()
+```
+
+**Solo podemos interpretar**:
+
+- ✓ **Signo**: positivo → aumenta P(Y=1); negativo → disminuye P(Y=1)
+- ✓ **Significancia**: el coeficiente es estadísticamente distinto de cero
+
+**NO interpretar la magnitud directamente**
+
+---
+
+# Solución 1: Efectos Marginales (RECOMENDADO)
+
+**Efecto marginal**: Cambio en la probabilidad cuando X aumenta en 1 unidad
+
+$$\frac{\partial P(Y=1|X)}{\partial X_j} = f(\beta_0 + \beta_1X_1 + ...) \cdot \beta_j$$
+
+donde $f(\cdot)$ es la función de densidad (derivada de F)
+
+**Dos formas de calcular**:
+
+1. Evaluar en la media de X (at means)
+2. Calcular para cada observación y promediar (average marginal effects) ← **Mejor**
+
+---
+
+# Efectos Marginales: Ejemplo
+
+```{r efectos-marginales}
+# Calcular efectos marginales promedio
+efectos_logit <- margins(modelo_logit)
+summary(efectos_logit) %>% 
+  select(factor, AME, SE, p) %>%
+  kable(digits = 5, col.names = c("Variable", "Efecto Marginal", 
+                                   "Error Est.", "p-value"))
+```
+
+**Interpretación práctica**:
+
+- Un punto adicional en el score crediticio aumenta la probabilidad de aprobación en **0.8 puntos porcentuales**
+- $1,000 adicionales de ingreso aumentan la probabilidad en **0.6 puntos porcentuales**
+
+---
+
+# Solución 2: Odds-Ratios (Solo Logit)
+
+**Odds (chances)**: $\frac{P(Y=1)}{P(Y=0)}$ = "chances de que ocurra vs no ocurra"
+
+**Odds-Ratio**: $OR = e^{\beta_j}$
+
+```{r odds-ratios}
+# Calcular odds-ratios
+odds_ratios <- exp(coef(modelo_logit))
+tibble(
+  Variable = names(odds_ratios),
+  `Odds-Ratio` = round(odds_ratios, 4)
+) %>% kable()
+```
+
+**Interpretación**: Un punto adicional en el score multiplica las chances de aprobación por 1.0083 (aumento del 0.83%)
+
+---
+
+# Variables Dicotómicas
+
+Cuando la variable independiente es dicotómica (ej: sexo, región):
+
+**Efecto marginal = Diferencia de probabilidades entre grupos**
+
+```{r dummy-ejemplo, echo=FALSE}
+# Ejemplo con variable dummy
+datos$mujer <- rbinom(n, 1, 0.5)
+modelo_dummy <- glm(aprobo ~ score + mujer, data = datos, 
+                    family = binomial(link = "logit"))
+ef_dummy <- margins(modelo_dummy)
+```
+
+```{r tabla-dummy, echo=FALSE}
+summary(ef_dummy) %>%
+  select(factor, AME, SE, p) %>%
+  kable(digits = 4, col.names = c("Variable", "Efecto Marginal", 
+                                   "Error Est.", "p-value"))
+```
+
+**Interpretación**: Si el coeficiente de "mujer" fuera -0.15 → "Ser mujer reduce la probabilidad de aprobación en 15 puntos porcentuales"
+
+---
+
+# Código: Efectos Marginales en R
+
+```{r codigo-efectos, eval=FALSE}
+# Instalar paquete si no lo tienes
+# install.packages("margins")
+library(margins)
+
+# Efectos marginales promedio (AME)
+efectos <- margins(modelo_logit)
+summary(efectos)
+
+# Efectos marginales evaluados en la media (MEM)
+efectos_media <- margins(modelo_logit, at = list(
+  ingreso = mean(datos$ingreso),
+  score = mean(datos$score),
+  edad = mean(datos$edad)
+))
+
+# Visualizar efectos marginales
+plot(efectos)
+```
+
+---
+
+# Evaluación de Modelos
+
+## R² de McFadden
+
+**Análogo al R² tradicional para modelos de variable dependiente limitada**
+
+$$R^2_{McFadden} = 1 - \frac{\log L(\hat{\beta})}{\log L(\beta_0)}$$
+
+```{r mcfadden}
+# Calcular R² de McFadden
+logLik_full <- logLik(modelo_logit)
+logLik_null <- logLik(glm(aprobo ~ 1, data = datos, 
+                          family = binomial(link = "logit")))
+
+r2_mcfadden <- 1 - (as.numeric(logLik_full) / as.numeric(logLik_null))
+cat("R² de McFadden:", round(r2_mcfadden, 4))
+```
+
+**Interpretación**: Valores entre 0.2-0.4 son considerados buenos
+
+**Usar R² ajustado** para comparar modelos con diferente número de variables
+
+---
+
+# Matriz de Confusión
+
+**Clasificación**: ¿El modelo predice correctamente?
+
+Necesitamos un **punto de corte** (c): si $\hat{P} > c \rightarrow \hat{Y}=1$
+
+|             | **Predijo Y=0** | **Predijo Y=1** |
+|-------------|-----------------|-----------------|
+| **Real Y=0** | TN (Verdadero Neg.) ✓ | FP (Falso Pos.) ✗ |
+| **Real Y=1** | FN (Falso Neg.) ✗ | TP (Verdadero Pos.) ✓ |
+
+**Métricas**:
+
+- **Tasa de acierto** (Accuracy) = $\frac{TN + TP}{n}$
+- **Sensitividad** (Recall) = $\frac{TP}{TP + FN}$ = % de casos positivos bien clasificados
+- **Especificidad** = $\frac{TN}{TN + FP}$ = % de casos negativos bien clasificados
+
+---
+
+# Matriz de Confusión: Ejemplo
+
+```{r matriz-confusion}
+# Predicciones
+predicciones <- predict(modelo_logit, type = "response")
+
+# Clasificación con punto de corte c = 0.5
+clase_pred <- ifelse(predicciones > 0.5, 1, 0)
+
+# Matriz de confusión
+conf_matrix <- confusionMatrix(
+  factor(clase_pred, levels = c(0,1)), 
+  factor(datos$aprobo, levels = c(0,1)),
+  positive = "1"
+)
+conf_matrix$table
+```
+
+---
+
+# Elección del Punto de Corte
+
+**Diferentes puntos de corte según el objetivo**:
+
+- **c = 0.5**: Estándar, trata FP y FN como igual de costosos
+- **c = proporción de Y=1**: Balancea las clases
+- **c personalizado**: Depende del costo relativo de errores
+
+**Ejemplo**: En detección de fraude, un falso negativo (fraude no detectado) es más costoso que un falso positivo → usar c más bajo (ej: 0.3)
+
+
+---
+
+# Supuestos, Problemas y Soluciones
+
+## Supuestos Clave
+
+**1. Independencia de observaciones**
+
+- Las observaciones son independientes entre sí
+- Violación común: datos en panel, clustering
+
+**2. Correcta especificación del modelo**
+
+- Forma funcional apropiada
+- Variables relevantes incluidas
+- No variables irrelevantes que inflen varianza
+
+**3. No multicolinealidad perfecta**
+
+- Las variables independientes no son combinaciones lineales exactas
+
+---
+
+# Problemas Comunes y Soluciones
+
+| Problema | Efecto | Solución |
+|----------|--------|----------|
+| **Heteroscedasticidad** (MPL) | Errores estándar incorrectos | Errores robustos de White |
+| **Predicciones fuera de [0,1]** (MPL) | No interpretable como probabilidad | Usar Logit/Probit |
+| **Variables omitidas** | Sesgo en coeficientes | Agregar variables relevantes |
+| **Separación perfecta** | Modelo no converge | Penalización (Firth), más datos |
+| **Multicolinealidad alta** | Coeficientes inestables | Eliminar variables correlacionadas |
+
+---
+
+## ¡Gracias!
+
+### Preguntas
+
+
+```{r sessionInfo, echo=FALSE, include=FALSE}
+sessionInfo()
+```

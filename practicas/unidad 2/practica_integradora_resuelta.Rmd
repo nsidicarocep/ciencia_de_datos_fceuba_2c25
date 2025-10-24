@@ -1,0 +1,1115 @@
+---
+title: "Soluciones Ejercicios AER - Guía de Interpretación"
+author: "Guía del Instructor"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    theme: united
+    highlight: tango
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+library(AER)
+library(dplyr)
+library(ggplot2)
+library(car)
+```
+
+# Ejercicio 1: Test de Hipótesis General - Salarios por Género
+
+## Solución
+
+```{r ejercicio1}
+# Cargamos el dataset que contiene información salarial de individuos
+data("CPS1985")
+
+# Primero exploramos la estructura de los datos para familiarizarnos
+str(CPS1985)
+
+# Filtramos los datos para incluir solamente los hombres, ya que queremos
+# realizar el test específicamente sobre este grupo
+hombres <- CPS1985 %>% filter(gender == "male")
+
+# Planteamiento de hipótesis:
+# H0: El salario promedio de los hombres es igual a 9 dólares por hora
+# H1: El salario promedio de los hombres es mayor a 9 dólares por hora
+# Este es un test unilateral (one-tailed) porque buscamos evidencia de que
+# el salario es MAYOR, no simplemente diferente
+
+# Realizamos el test t de una muestra con la alternativa "greater"
+test_salario <- t.test(hombres$wage, mu = 9, alternative = "greater")
+print(test_salario)
+```
+
+## Interpretación Teórica
+
+Para interpretar correctamente este test de hipótesis, necesitamos entender varios componentes clave del resultado. El estadístico t nos indica cuántas desviaciones estándar se encuentra la media muestral respecto al valor hipotético que estamos probando. Un valor absoluto grande del estadístico t sugiere que la diferencia observada es sustancial en relación con la variabilidad de los datos.
+
+El p-value es fundamental para nuestra decisión estadística. Este valor representa la probabilidad de obtener un resultado tan extremo o más extremo que el observado, asumiendo que la hipótesis nula es verdadera. Si el p-value es menor que nuestro nivel de significancia (alfa igual a cero punto cero cinco), rechazamos la hipótesis nula. En este contexto, un p-value muy pequeño nos indicaría que hay evidencia estadística suficiente para afirmar que el salario promedio de los hombres supera los nueve dólares por hora.
+
+El intervalo de confianza que se reporta también es informativo. Dado que realizamos un test unilateral, obtendremos un intervalo de confianza que tiene un límite inferior pero no un límite superior finito. Si este límite inferior está por encima de nueve dólares, esto refuerza nuestra conclusión de que el salario promedio es mayor al valor hipotético.
+
+La interpretación práctica debe considerar tanto la significancia estadística como la relevancia práctica. Aunque encontremos que el salario promedio es estadísticamente mayor a nueve dólares, debemos preguntarnos si esta diferencia es económicamente significativa para los trabajadores y empleadores.
+
+---
+
+# Ejercicio 2: Test de Diferencias entre Medias - Comparación de Salarios
+
+## Solución
+
+```{r ejercicio2}
+# Calculamos estadísticas descriptivas separadas por género para entender
+# mejor la distribución de los salarios antes de realizar el test formal
+estadisticas_genero <- CPS1985 %>%
+  group_by(gender) %>%
+  summarise(
+    media = mean(wage),
+    mediana = median(wage),
+    desv_std = sd(wage),
+    n = n(),
+    error_std = sd(wage)/sqrt(n())
+  )
+print(estadisticas_genero)
+
+# Visualizamos la distribución de salarios por género usando boxplots
+# Esto nos ayuda a identificar diferencias, dispersión y valores atípicos
+ggplot(CPS1985, aes(x = gender, y = wage, fill = gender)) +
+  geom_boxplot() +
+  labs(title = "Distribución de Salarios por Género",
+       x = "Género", y = "Salario por hora (USD)") +
+  theme_minimal()
+
+# Verificamos la normalidad mediante gráficos Q-Q para cada grupo
+# Este es un supuesto importante del test t, aunque el test es robusto
+# a violaciones moderadas cuando el tamaño muestral es grande
+par(mfrow = c(1, 2))
+qqnorm(CPS1985$wage[CPS1985$gender == "male"], main = "Q-Q Plot Hombres")
+qqline(CPS1985$wage[CPS1985$gender == "male"])
+qqnorm(CPS1985$wage[CPS1985$gender == "female"], main = "Q-Q Plot Mujeres")
+qqline(CPS1985$wage[CPS1985$gender == "female"])
+par(mfrow = c(1, 1))
+
+# Realizamos el test de Levene para verificar homogeneidad de varianzas
+# Esto determina si usamos el test t con varianzas iguales o desiguales
+levene_test <- leveneTest(wage ~ gender, data = CPS1985)
+print(levene_test)
+
+# Realizamos el test t de dos muestras independientes
+# Si las varianzas no son homogéneas, usamos var.equal = FALSE (Welch's t-test)
+test_genero <- t.test(wage ~ gender, data = CPS1985, var.equal = FALSE)
+print(test_genero)
+
+# Calculamos el tamaño del efecto usando Cohen's d para evaluar la
+# magnitud práctica de la diferencia, más allá de la significancia estadística
+media_hombres <- mean(CPS1985$wage[CPS1985$gender == "male"])
+media_mujeres <- mean(CPS1985$wage[CPS1985$gender == "female"])
+sd_pooled <- sqrt(((sum(CPS1985$gender == "male") - 1) * sd(CPS1985$wage[CPS1985$gender == "male"])^2 + 
+                    (sum(CPS1985$gender == "female") - 1) * sd(CPS1985$wage[CPS1985$gender == "female"])^2) / 
+                   (nrow(CPS1985) - 2))
+cohens_d <- (media_hombres - media_mujeres) / sd_pooled
+cat("Cohen's d:", cohens_d, "\n")
+```
+
+## Interpretación Teórica
+
+El test t de dos muestras independientes nos permite comparar las medias de dos grupos diferentes para determinar si existe una diferencia estadísticamente significativa entre ellos. En el contexto de salarios por género, este análisis es particularmente relevante para estudiar la equidad salarial.
+
+Antes de interpretar los resultados del test, es crucial verificar los supuestos. El test de Levene nos indica si las varianzas de ambos grupos son homogéneas. Si el p-value del test de Levene es mayor a nuestro nivel de significancia, no rechazamos la hipótesis de varianzas iguales y podemos usar el test t clásico. Si las varianzas difieren significativamente, debemos usar la corrección de Welch, que ajusta los grados de libertad para acomodar esta diferencia.
+
+Los gráficos Q-Q nos ayudan a evaluar si los datos siguen aproximadamente una distribución normal. Si los puntos se alinean razonablemente bien con la línea de referencia, podemos confiar en que el supuesto de normalidad se cumple de manera aceptable. Desviaciones menores de la normalidad generalmente no son problemáticas cuando tenemos tamaños muestrales grandes, gracias al teorema del límite central.
+
+El resultado principal del test t incluye el estadístico t, los grados de libertad y el p-value. Un p-value menor a nuestro nivel de significancia indica que rechazamos la hipótesis nula de igualdad de medias, concluyendo que existe una diferencia estadísticamente significativa entre los salarios promedio de hombres y mujeres.
+
+El intervalo de confianza para la diferencia de medias es especialmente informativo. Si este intervalo no contiene el cero, esto refuerza nuestra conclusión de que hay una diferencia significativa. Además, el intervalo nos da un rango plausible para la verdadera diferencia poblacional. Por ejemplo, si el intervalo completo está en territorio positivo, esto sugiere que un género consistentemente gana más que el otro.
+
+El tamaño del efecto, medido por Cohen's d, nos ayuda a evaluar la magnitud práctica de la diferencia. Convencionalmente, un Cohen's d de aproximadamente cero punto dos se considera un efecto pequeño, cero punto cinco un efecto medio, y cero punto ocho o mayor un efecto grande. Esta distinción es importante porque una diferencia puede ser estadísticamente significativa (especialmente con muestras grandes) pero tener poca relevancia práctica, o viceversa.
+
+En el contexto de la brecha salarial de género, debemos considerar que esta comparación simple no ajusta por otras variables que podrían explicar parte de la diferencia observada, como educación, experiencia, tipo de ocupación, o sector industrial. Un análisis más completo requeriría modelos multivariados que controlen por estos factores confusores.
+
+---
+
+# Ejercicio 3: Test de Proporciones - Sindicalización
+
+## Solución
+
+```{r ejercicio3}
+# Creamos una tabla de contingencia para visualizar la relación entre
+# región geográfica y afiliación sindical
+tabla_contingencia <- table(CPS1985$south, CPS1985$union)
+print("Tabla de Contingencia:")
+print(tabla_contingencia)
+
+# Calculamos las proporciones de sindicalización en cada región
+# Esto nos da una idea descriptiva antes del test formal
+prop_sur <- prop.table(table(CPS1985$south, CPS1985$union), margin = 1)
+print("Proporciones por región:")
+print(prop_sur)
+
+# Extraemos los conteos necesarios para el test de proporciones
+# Necesitamos el número de "éxitos" (sindicalizados) en cada grupo
+# y el número total de observaciones en cada grupo
+n_sur <- sum(CPS1985$south == "yes")
+n_no_sur <- sum(CPS1985$south == "no")
+sindicalizados_sur <- sum(CPS1985$south == "yes" & CPS1985$union == "yes")
+sindicalizados_no_sur <- sum(CPS1985$south == "no" & CPS1985$union == "yes")
+
+# Realizamos el test de proporciones de dos muestras
+# Este test evalúa si la proporción de sindicalización difiere
+# significativamente entre las dos regiones
+test_proporciones <- prop.test(
+  x = c(sindicalizados_sur, sindicalizados_no_sur),
+  n = c(n_sur, n_no_sur)
+)
+print(test_proporciones)
+
+# Como complemento, realizamos también un test chi-cuadrado de independencia
+# que evalúa si hay asociación entre región y sindicalización
+chi_test <- chisq.test(tabla_contingencia)
+print(chi_test)
+```
+
+## Interpretación Teórica
+
+El test de proporciones de dos muestras es apropiado cuando comparamos la frecuencia de un evento en dos grupos diferentes. En este caso, estamos evaluando si la "tasa de sindicalización" difiere entre trabajadores del sur y del resto del país.
+
+La hipótesis nula establece que las proporciones poblacionales son iguales en ambos grupos, mientras que la hipótesis alternativa propone que son diferentes. El test utiliza una aproximación a la distribución normal para calcular el estadístico de prueba, que se basa en la diferencia entre las proporciones muestrales estandarizada por su error estándar.
+
+El estadístico chi-cuadrado que se reporta mide qué tan lejos están las frecuencias observadas de lo que esperaríamos si no hubiera asociación entre región y sindicalización. Un valor grande del estadístico chi-cuadrado indica una mayor discrepancia entre lo observado y lo esperado bajo la hipótesis nula.
+
+El p-value nos indica la probabilidad de observar una diferencia tan grande o mayor entre las proporciones, asumiendo que en realidad no hay diferencia poblacional. Un p-value pequeño (menor a nuestro nivel de significancia) nos llevaría a rechazar la hipótesis nula y concluir que existe una diferencia estadísticamente significativa en las tasas de sindicalización entre regiones.
+
+El intervalo de confianza para la diferencia de proporciones nos proporciona información adicional valiosa. Este intervalo nos da un rango de valores plausibles para la verdadera diferencia poblacional. Si el intervalo no contiene el cero, esto confirma que hay una diferencia significativa. La amplitud del intervalo refleja la precisión de nuestra estimación: intervalos más estrechos indican estimaciones más precisas.
+
+Desde una perspectiva sustantiva, las diferencias regionales en sindicalización pueden reflejar factores históricos, culturales, económicos y políticos que caracterizan diferentes partes del país. El sur de Estados Unidos, por ejemplo, ha tenido históricamente tasas de sindicalización más bajas, asociadas con legislación laboral menos favorable a los sindicatos y una cultura política más conservadora.
+
+Es importante recordar que este análisis establece asociación, pero no causalidad. No podemos concluir que la ubicación geográfica causa diferencias en sindicalización; simplemente observamos que estas variables están relacionadas.
+
+---
+
+# Ejercicio 4: ANOVA - Análisis de Salarios por Ocupación
+
+## Solución
+
+```{r ejercicio4}
+# Calculamos estadísticas descriptivas por tipo de ocupación
+# Esto nos permite ver patrones preliminares antes del análisis formal
+estadisticas_ocupacion <- CPS1985 %>%
+  group_by(occupation) %>%
+  summarise(
+    n = n(),
+    media_salario = mean(wage),
+    mediana_salario = median(wage),
+    desv_std = sd(wage),
+    min = min(wage),
+    max = max(wage)
+  ) %>%
+  arrange(desc(media_salario))
+
+print(estadisticas_ocupacion)
+
+# Creamos un boxplot que muestra la distribución de salarios para cada ocupación
+# La visualización nos ayuda a identificar diferencias, valores atípicos y
+# la variabilidad dentro de cada grupo
+ggplot(CPS1985, aes(x = reorder(occupation, wage, FUN = median), 
+                     y = wage, fill = occupation)) +
+  geom_boxplot() +
+  coord_flip() +
+  labs(title = "Distribución de Salarios por Ocupación",
+       x = "Ocupación", y = "Salario por hora (USD)") +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+# Realizamos el ANOVA de un factor
+# Este test evalúa si hay diferencias significativas entre las medias
+# de los diferentes grupos de ocupación
+modelo_anova <- aov(wage ~ occupation, data = CPS1985)
+resumen_anova <- summary(modelo_anova)
+print(resumen_anova)
+
+# Verificamos los supuestos del ANOVA mediante análisis de residuos
+# 1. Normalidad de residuos
+# 2. Homogeneidad de varianzas (homocedasticidad)
+par(mfrow = c(2, 2))
+plot(modelo_anova)
+par(mfrow = c(1, 1))
+
+# Test de Levene para verificar formalmente la homogeneidad de varianzas
+levene_ocupacion <- leveneTest(wage ~ occupation, data = CPS1985)
+print(levene_ocupacion)
+
+# Si el ANOVA es significativo, realizamos comparaciones múltiples post-hoc
+# El test de Tukey controla el error tipo I cuando hacemos múltiples comparaciones
+tukey_resultado <- TukeyHSD(modelo_anova)
+print(tukey_resultado)
+
+# Visualizamos las comparaciones de Tukey para identificar fácilmente
+# qué pares de ocupaciones difieren significativamente
+plot(tukey_resultado, las = 1, cex.axis = 0.7)
+```
+
+## Interpretación Teórica
+
+El análisis de varianza (ANOVA) es una técnica estadística que nos permite comparar las medias de tres o más grupos simultáneamente. Es preferible a realizar múltiples tests t de dos muestras porque controla adecuadamente la tasa de error tipo I (rechazar falsamente la hipótesis nula) cuando hacemos múltiples comparaciones.
+
+El ANOVA funciona particionando la variabilidad total de los datos en dos componentes fundamentales: la variabilidad entre grupos y la variabilidad dentro de grupos. La variabilidad entre grupos refleja las diferencias en las medias de los grupos, mientras que la variabilidad dentro de grupos representa la dispersión natural de las observaciones alrededor de sus respectivas medias grupales.
+
+El estadístico F es el cociente entre estas dos fuentes de variabilidad. Específicamente, divide la varianza entre grupos por la varianza dentro de grupos. Si no hay diferencias reales entre los grupos poblacionales, esperaríamos que este cociente sea cercano a uno, ya que ambas fuentes de variabilidad deberían ser similares. Un valor grande de F sugiere que la variabilidad entre grupos es mucho mayor que la variabilidad dentro de grupos, lo cual es consistente con la existencia de diferencias reales entre las medias poblacionales.
+
+El p-value asociado al estadístico F nos indica la probabilidad de obtener un valor tan extremo o más extremo bajo la hipótesis nula de que todas las medias poblacionales son iguales. Un p-value pequeño nos lleva a rechazar esta hipótesis nula, concluyendo que al menos dos de las medias grupales difieren significativamente.
+
+Sin embargo, el ANOVA solo nos dice que existe alguna diferencia, pero no nos especifica cuáles grupos difieren entre sí. Esta es la razón por la cual necesitamos realizar análisis post-hoc, como el test de Tukey. El test de Tukey realiza todas las comparaciones por pares posibles mientras controla el error de tipo I familiar, es decir, la probabilidad de cometer al menos un error tipo I en el conjunto completo de comparaciones.
+
+Los resultados del test de Tukey incluyen la diferencia estimada entre cada par de medias, junto con un intervalo de confianza ajustado y un p-value ajustado. Si el intervalo de confianza para una comparación específica no incluye el cero, o si el p-value ajustado es menor que nuestro nivel de significancia, concluimos que ese par específico de grupos difiere significativamente.
+
+Los supuestos del ANOVA incluyen normalidad de los residuos y homogeneidad de varianzas entre grupos. El gráfico Q-Q de residuos nos ayuda a evaluar la normalidad: si los puntos siguen aproximadamente la línea diagonal, el supuesto se cumple razonablemente. El gráfico de residuos versus valores ajustados nos ayuda a evaluar la homocedasticidad: deberíamos ver una dispersión aproximadamente constante de los residuos a lo largo de los valores ajustados, sin patrones evidentes.
+
+El test de Levene proporciona una evaluación formal de la homogeneidad de varianzas. Si este test resulta significativo, indica que las varianzas difieren entre grupos, lo cual viola un supuesto del ANOVA. En este caso, podríamos considerar transformaciones de los datos o usar alternativas no paramétricas como el test de Kruskal-Wallis.
+
+En el contexto de salarios por ocupación, encontrar diferencias significativas es tanto esperado como informativo. Diferentes ocupaciones requieren distintos niveles de educación, habilidades especializadas, y responsabilidades, lo cual naturalmente se traduce en diferentes niveles de compensación. El análisis nos permite cuantificar estas diferencias y determinar cuáles son estadísticamente significativas más allá de la variabilidad muestral.
+
+---
+
+# Ejercicio 5: Análisis de Componentes Principales (PCA)
+
+## Solución
+
+```{r ejercicio5}
+# Cargamos el dataset de revistas académicas
+data("Journals")
+
+# Examinamos la estructura de los datos para identificar variables numéricas
+str(Journals)
+
+# Seleccionamos las variables numéricas relevantes para el PCA
+# Excluimos variables categóricas y aquellas que no tienen sentido incluir
+variables_pca <- Journals %>%
+  select(subs, price, citations, foundingyear, pages, charpp)
+
+# Exploramos las estadísticas descriptivas de estas variables
+summary(variables_pca)
+
+# Verificamos correlaciones entre variables antes del PCA
+# Correlaciones altas sugieren que el PCA será efectivo en reducir dimensiones
+matriz_correlacion <- cor(variables_pca, use = "complete.obs")
+print(matriz_correlacion)
+
+# Estandarizamos las variables antes del PCA porque están en diferentes escalas
+# La estandarización asegura que ninguna variable domine el análisis
+# simplemente por tener mayor varianza nominal
+variables_escaladas <- scale(variables_pca)
+
+# Realizamos el análisis de componentes principales
+pca_resultado <- prcomp(variables_escaladas, center = FALSE, scale. = FALSE)
+
+# Examinamos la proporción de varianza explicada por cada componente
+# Esto nos ayuda a decidir cuántos componentes retener
+summary(pca_resultado)
+
+# Creamos un scree plot para visualizar la varianza explicada
+# La regla del "codo" sugiere retener componentes hasta donde la curva
+# comienza a aplanarse
+varianza_explicada <- pca_resultado$sdev^2 / sum(pca_resultado$sdev^2)
+plot(varianza_explicada, type = "b", 
+     xlab = "Componente Principal", 
+     ylab = "Proporción de Varianza Explicada",
+     main = "Scree Plot")
+abline(h = 1/ncol(variables_pca), col = "red", lty = 2)
+
+# Examinamos los loadings (cargas) de los primeros componentes
+# Los loadings nos dicen cómo cada variable original contribuye al componente
+print("Loadings de los primeros tres componentes:")
+print(pca_resultado$rotation[, 1:3])
+
+# Creamos un biplot que muestra simultáneamente las observaciones
+# y las variables en el espacio de los dos primeros componentes
+biplot(pca_resultado, scale = 0, cex = 0.6,
+       main = "Biplot - Primeros Dos Componentes Principales")
+
+# Calculamos los scores de cada observación en los componentes principales
+scores <- as.data.frame(pca_resultado$x)
+scores$journal <- Journals$title
+
+# Identificamos las revistas con scores extremos en PC1 y PC2
+# Esto nos ayuda a interpretar qué representan estos componentes
+print("Revistas con scores más altos en PC1:")
+print(head(scores[order(-scores$PC1), c("journal", "PC1")]))
+
+print("Revistas con scores más bajos en PC1:")
+print(head(scores[order(scores$PC1), c("journal", "PC1")]))
+```
+
+## Interpretación Teórica
+
+El análisis de componentes principales es una técnica de reducción de dimensionalidad que transforma un conjunto de variables posiblemente correlacionadas en un conjunto menor de variables no correlacionadas llamadas componentes principales. Cada componente principal es una combinación lineal de las variables originales, y los componentes se ordenan por la cantidad de varianza que explican.
+
+La necesidad de estandarizar las variables antes del PCA es crucial cuando las variables originales están medidas en diferentes unidades o tienen escalas muy distintas. Sin estandarización, las variables con mayor varianza nominal dominarían los primeros componentes, no por su importancia conceptual, sino simplemente por su escala. Al estandarizar, damos a cada variable la misma oportunidad de influir en el análisis.
+
+El primer componente principal captura la dirección de máxima variabilidad en los datos. El segundo componente captura la dirección de máxima variabilidad restante, sujeto a la restricción de ser ortogonal (perpendicular) al primer componente. Este proceso continúa para componentes subsecuentes, cada uno capturando variabilidad adicional mientras permanece ortogonal a todos los componentes anteriores.
+
+Para decidir cuántos componentes retener, consideramos varios criterios. El criterio de Kaiser sugiere retener componentes con eigenvalues (valores propios) mayores a uno cuando trabajamos con variables estandarizadas. Esto se debe a que un eigenvalue de uno corresponde a la cantidad de varianza de una variable original, entonces componentes con eigenvalues menores a uno explican menos varianza que una sola variable original y pueden no valer la pena retener.
+
+El scree plot proporciona una evaluación visual. Graficamos los eigenvalues en orden descendente y buscamos un "codo" donde la curva comienza a aplanarse. Los componentes antes del codo capturan varianza sustancial, mientras que los componentes después del codo agregan relativamente poco.
+
+Otro criterio es la proporción acumulada de varianza explicada. Podríamos decidir retener suficientes componentes para explicar, por ejemplo, al menos setenta u ochenta por ciento de la varianza total. El umbral específico depende del contexto y del balance deseado entre simplicidad y fidelidad a los datos originales.
+
+Los loadings nos permiten interpretar qué representa cada componente principal. Un loading alto (positivo o negativo) indica que esa variable contribuye fuertemente a ese componente. Por ejemplo, si encontramos que el primer componente tiene loadings altos y positivos para precio y número de páginas, pero un loading negativo para suscripciones, podríamos interpretar este componente como reflejando el "tamaño y costo" de las revistas, donde valores altos indican revistas grandes y caras con pocas suscripciones.
+
+El biplot es particularmente útil porque muestra simultáneamente las observaciones (revistas, en este caso) como puntos y las variables originales como vectores. La dirección de cada vector indica cómo esa variable contribuye a los componentes mostrados. Vectores que apuntan en direcciones similares indican variables positivamente correlacionadas. Vectores perpendiculares indican variables no correlacionadas. Vectores opuestos indican correlación negativa.
+
+Las observaciones cercanas en el biplot son similares en términos de las variables originales. Observaciones en la dirección de un vector de variable tienen valores altos en esa variable. Esto nos permite identificar grupos naturales de observaciones y entender qué características definen estos grupos.
+
+En el contexto de revistas académicas, el PCA puede revelar dimensiones latentes que caracterizan las revistas. Por ejemplo, un componente podría representar "prestigio e impacto", capturando revistas con muchas citas y alta calidad. Otro componente podría representar "accesibilidad", relacionado con precios y tasas de suscripción. Estas interpretaciones deben hacerse cuidadosamente examinando los patrones de loadings y validándose contra conocimiento del dominio.
+
+---
+
+# Ejercicio 6: Regresión Lineal - Determinantes del Salario
+
+## Solución
+
+```{r ejercicio6}
+# Especificamos y estimamos el modelo de regresión lineal múltiple
+# El salario es la variable dependiente, y educación, experiencia, género
+# y afiliación sindical son las variables independientes (predictores)
+modelo_salario <- lm(wage ~ education + experience + gender + union, 
+                     data = CPS1985)
+
+# Examinamos el resumen completo del modelo
+summary(modelo_salario)
+
+# Calculamos intervalos de confianza para los coeficientes
+# Estos intervalos nos dan un rango de valores plausibles para cada efecto
+confint(modelo_salario)
+
+# Realizamos diagnósticos del modelo mediante gráficos de residuos
+# Estos gráficos nos ayudan a verificar los supuestos de regresión
+par(mfrow = c(2, 2))
+plot(modelo_salario)
+par(mfrow = c(1, 1))
+
+# Test de normalidad de los residuos usando Shapiro-Wilk
+# Si trabajamos con muestras grandes, podemos usar una muestra de residuos
+shapiro.test(sample(residuals(modelo_salario), 500))
+
+# Test de Breusch-Pagan para homocedasticidad
+# Este test evalúa si la varianza de los errores es constante
+bptest(modelo_salario)
+
+# Calculamos estadísticos VIF para detectar multicolinealidad
+# VIF mayores a 10 sugieren problemas severos de multicolinealidad
+vif(modelo_salario)
+
+# Analizamos la importancia relativa de las variables
+# Comparamos los coeficientes estandarizados (beta)
+modelo_estandarizado <- lm(scale(wage) ~ scale(education) + 
+                           scale(experience) + gender + union, 
+                           data = CPS1985)
+summary(modelo_estandarizado)
+```
+
+## Interpretación Teórica
+
+La regresión lineal múltiple es una técnica que nos permite modelar la relación entre una variable dependiente y múltiples variables independientes simultáneamente. El modelo asume que la relación es lineal y aditiva, es decir, el efecto de cada predictor sobre la variable dependiente es constante y los efectos se suman.
+
+Los coeficientes estimados en el modelo tienen interpretaciones específicas. El intercepto representa el valor esperado de la variable dependiente cuando todos los predictores numéricos son cero y las variables categóricas están en su categoría de referencia. Para los predictores numéricos, cada coeficiente representa el cambio esperado en la variable dependiente asociado con un aumento de una unidad en ese predictor, manteniendo constantes todos los demás predictores (ceteris paribus).
+
+Para las variables categóricas como género, el coeficiente representa la diferencia promedio en la variable dependiente entre la categoría codificada y la categoría de referencia, controlando por las demás variables. Si el género masculino tiene un coeficiente positivo, esto indica que, en promedio y manteniendo constante educación, experiencia y afiliación sindical, los hombres ganan más que las mujeres.
+
+Cada coeficiente viene acompañado de un error estándar, que mide la precisión de la estimación. El estadístico t se calcula dividiendo el coeficiente entre su error estándar y mide cuántas desviaciones estándar se aleja el coeficiente estimado de cero. El p-value asociado nos indica si podemos rechazar la hipótesis nula de que el coeficiente poblacional es cero. Un p-value pequeño sugiere que ese predictor tiene un efecto estadísticamente significativo sobre la variable dependiente.
+
+Los intervalos de confianza para los coeficientes proporcionan un rango de valores plausibles para el verdadero efecto poblacional. Si un intervalo de confianza no contiene el cero, esto confirma que el efecto es estadísticamente significativo. La amplitud del intervalo refleja la precisión de nuestra estimación: intervalos estrechos indican estimaciones más precisas.
+
+El R cuadrado nos indica qué proporción de la variabilidad en la variable dependiente es explicada por el modelo. Un R cuadrado más alto indica un mejor ajuste del modelo a los datos. Sin embargo, debemos usar el R cuadrado ajustado cuando comparamos modelos con diferente número de predictores, ya que este penaliza la adición de variables que no mejoran sustancialmente el ajuste.
+
+El estadístico F global evalúa si el modelo en su conjunto es significativo, es decir, si al menos uno de los predictores tiene un efecto no nulo sobre la variable dependiente. Un p-value pequeño para el estadístico F indica que el modelo es útil para predecir la variable dependiente.
+
+Los diagnósticos de residuos son cruciales para verificar los supuestos del modelo. El gráfico de residuos versus valores ajustados debe mostrar una dispersión aleatoria sin patrones sistemáticos. Un patrón de embudo sugiere heterocedasticidad, donde la varianza de los errores cambia con el nivel de la variable dependiente. Patrones curvos sugieren no linealidad que el modelo no está capturando.
+
+El gráfico Q-Q de residuos evalúa la normalidad. Si los residuos son aproximadamente normales, los puntos deben seguir la línea diagonal. Desviaciones sistemáticas, especialmente en las colas, sugieren que la distribución de errores no es normal, lo cual puede afectar la validez de los tests de hipótesis y los intervalos de confianza.
+
+El gráfico de distancia de Cook identifica observaciones influyentes que tienen un impacto desproporcionado en las estimaciones del modelo. Observaciones con distancia de Cook mayor a uno ameritan investigación cuidadosa para determinar si son errores de datos, valores atípicos genuinos, o casos especiales que merecen análisis separado.
+
+El test de Breusch-Pagan evalúa formalmente la homocedasticidad. Un p-value pequeño indica heterocedasticidad, lo cual no invalida las estimaciones de los coeficientes pero sí afecta los errores estándar y por tanto la validez de los tests de hipótesis. Si detectamos heterocedasticidad, podemos usar errores estándar robustos que son válidos incluso bajo heterocedasticidad.
+
+Los factores de inflación de varianza (VIF) evalúan multicolinealidad, que ocurre cuando los predictores están altamente correlacionados entre sí. Multicolinealidad severa infla los errores estándar de los coeficientes, haciendo difícil detectar efectos significativos y produciendo estimaciones inestables. VIF valores cercanos a uno indican ausencia de multicolinealidad, mientras que valores mayores a diez sugieren problemas serios.
+
+Para comparar la importancia relativa de diferentes predictores, no podemos simplemente comparar los coeficientes originales porque están en diferentes escalas. Los coeficientes estandarizados (beta) resuelven este problema expresando todo en términos de desviaciones estándar. Un beta más grande en valor absoluto indica un efecto más fuerte en términos estandarizados.
+
+En el contexto de determinantes del salario, este análisis nos permite cuantificar cómo diferentes características individuales y laborales se asocian con el salario, controlando simultáneamente por múltiples factores. Esto nos da una imagen más completa que análisis bivariados simples, permitiéndonos aislar el efecto específico de cada variable.
+
+---
+
+# Ejercicio 7: Evaluación de Datos Faltantes
+
+## Solución
+
+```{r ejercicio7}
+# Cargamos el dataset
+data("PSID1976")
+
+# Función para calcular estadísticas de datos faltantes por variable
+calcular_missing <- function(data) {
+  missing_stats <- data.frame(
+    variable = names(data),
+    n_missing = sapply(data, function(x) sum(is.na(x))),
+    pct_missing = sapply(data, function(x) round(100 * sum(is.na(x)) / length(x), 2)),
+    tipo = sapply(data, class)
+  )
+  missing_stats <- missing_stats[order(-missing_stats$n_missing), ]
+  return(missing_stats)
+}
+
+# Calculamos estadísticas de datos faltantes
+estadisticas_missing <- calcular_missing(PSID1976)
+print(estadisticas_missing)
+
+# Visualizamos patrones de datos faltantes
+# Si hay datos faltantes, creamos un gráfico para identificar patrones
+if(sum(estadisticas_missing$n_missing) > 0) {
+  # Matriz indicadora de datos faltantes (1 = faltante, 0 = presente)
+  matriz_missing <- as.data.frame(is.na(PSID1976))
+  
+  # Calculamos correlaciones entre patrones de valores faltantes
+  # Correlaciones altas sugieren que ciertos valores tienden a faltar juntos
+  if(ncol(matriz_missing[, colSums(matriz_missing) > 0]) > 1) {
+    cor_missing <- cor(matriz_missing[, colSums(matriz_missing) > 0])
+    print("Correlaciones entre patrones de datos faltantes:")
+    print(round(cor_missing, 3))
+  }
+} else {
+  print("No hay datos faltantes en el dataset original.")
+  print("Procederemos a crear datos faltantes artificialmente para demostrar el análisis.")
+  
+  # Creamos una copia del dataset y generamos datos faltantes artificiales
+  PSID1976_con_missing <- PSID1976
+  
+  # Generamos missing completamente al azar (MCAR) en la variable wage
+  # Aproximadamente 10% de los valores
+  set.seed(123)
+  indices_mcar <- sample(1:nrow(PSID1976_con_missing), 
+                         size = round(0.10 * nrow(PSID1976_con_missing)))
+  PSID1976_con_missing$wage[indices_mcar] <- NA
+  
+  # Generamos missing at random (MAR) en education
+  # La probabilidad de missing depende de otra variable (edad)
+  prob_missing <- plogis((PSID1976_con_missing$age - mean(PSID1976_con_missing$age)) / 10)
+  indices_mar <- which(runif(nrow(PSID1976_con_missing)) < prob_missing * 0.15)
+  PSID1976_con_missing$education[indices_mar] <- NA
+  
+  # Recalculamos estadísticas con datos faltantes artificiales
+  estadisticas_missing_artificial <- calcular_missing(PSID1976_con_missing)
+  print("Estadísticas después de introducir datos faltantes artificiales:")
+  print(estadisticas_missing_artificial)
+}
+
+# Analizamos si los datos faltantes están relacionados con otras variables
+# Esto nos ayuda a determinar el mecanismo de missing (MCAR, MAR, o MNAR)
+if(exists("PSID1976_con_missing")) {
+  # Comparamos características de casos completos vs casos con missing
+  PSID1976_con_missing$missing_wage <- is.na(PSID1976_con_missing$wage)
+  
+  comparacion <- PSID1976_con_missing %>%
+    group_by(missing_wage) %>%
+    summarise(
+      n = n(),
+      edad_media = mean(age, na.rm = TRUE),
+      experiencia_media = mean(experience, na.rm = TRUE),
+      prop_casados = mean(married == "yes", na.rm = TRUE)
+    )
+  print("Comparación de características según presencia de datos faltantes:")
+  print(comparacion)
+  
+  # Test estadístico para evaluar si el missing es independiente de otras variables
+  # Si el test es significativo, sugiere que el missing no es completamente al azar
+  test_mcar <- t.test(age ~ missing_wage, data = PSID1976_con_missing)
+  print("Test t para evaluar si la edad difiere según missing en wage:")
+  print(test_mcar)
+}
+
+# Estrategias para manejar datos faltantes
+cat("\n=== ESTRATEGIAS RECOMENDADAS ===\n\n")
+
+cat("1. ANÁLISIS DE CASOS COMPLETOS (Listwise deletion):\n")
+cat("   - Apropiado cuando: <5% de datos faltantes y MCAR\n")
+cat("   - Limitación: Pérdida de información y reducción de poder estadístico\n\n")
+
+cat("2. IMPUTACIÓN SIMPLE:\n")
+cat("   - Media/Mediana para variables continuas\n")
+cat("   - Moda para variables categóricas\n")
+cat("   - Limitación: Subestima la variabilidad y correlaciones\n\n")
+
+cat("3. IMPUTACIÓN MÚLTIPLE:\n")
+cat("   - Genera múltiples datasets completos\n")
+cat("   - Preserva incertidumbre sobre valores imputados\n")
+cat("   - Recomendado cuando: Missing at Random (MAR)\n\n")
+
+cat("4. MODELOS CON MISSING:\n")
+cat("   - Algunos modelos pueden manejar missing directamente\n")
+cat("   - Ejemplo: Maximum likelihood con missing en outcomes\n\n")
+
+# Ejemplo de imputación simple para demostración
+if(exists("PSID1976_con_missing")) {
+  PSID1976_imputado <- PSID1976_con_missing
+  
+  # Imputamos wage con la mediana de casos completos
+  PSID1976_imputado$wage[is.na(PSID1976_imputado$wage)] <- 
+    median(PSID1976_con_missing$wage, na.rm = TRUE)
+  
+  # Imputamos education con la media de casos completos
+  PSID1976_imputado$education[is.na(PSID1976_imputado$education)] <- 
+    mean(PSID1976_con_missing$education, na.rm = TRUE)
+  
+  cat("Dataset después de imputación simple:\n")
+  print(calcular_missing(PSID1976_imputado))
+}
+```
+
+## Interpretación Teórica
+
+Los datos faltantes son una realidad común en la investigación empírica y representan un desafío importante porque pueden introducir sesgo y reducir el poder estadístico de nuestros análisis. Comprender la naturaleza y el patrón de los datos faltantes es crucial para elegir la estrategia apropiada de manejo.
+
+Existen tres mecanismos principales por los cuales los datos pueden faltar. En el caso de missing completamente al azar (MCAR), la probabilidad de que un valor falte es la misma para todas las observaciones y no está relacionada con ninguna variable, ni observada ni no observada. Este es el escenario más favorable pero también el menos común en la práctica. Bajo MCAR, el análisis de casos completos produce estimaciones no sesgadas, aunque con menor precisión debido al tamaño de muestra reducido.
+
+El mecanismo missing at random (MAR) ocurre cuando la probabilidad de que un valor falte depende de otras variables observadas en el dataset, pero no del valor faltante mismo. Por ejemplo, los participantes más jóvenes podrían tener mayor probabilidad de no reportar su ingreso, pero condicionado en la edad, el missing es aleatorio. MAR es una suposición crucial para muchos métodos de imputación modernos, incluyendo la imputación múltiple.
+
+El mecanismo más problemático es missing not at random (MNAR), donde la probabilidad de que un valor falte depende del valor faltante mismo. Por ejemplo, las personas con ingresos muy altos podrían ser más propensas a no reportar su ingreso precisamente porque es alto. MNAR es difícil de manejar porque la relación entre el missing y el valor no observado no puede ser verificada directamente con los datos disponibles.
+
+Para evaluar el mecanismo de missing, examinamos las relaciones entre la presencia de datos faltantes y otras variables observadas. Si encontramos que ciertas características predicen fuertemente el missing, esto sugiere que no estamos en un escenario MCAR. Tests estadísticos pueden evaluar formalmente si los casos con y sin datos faltantes difieren en variables observadas, aunque debemos recordar que no podemos probar MCAR definitivamente, solo encontrar evidencia contra él.
+
+La visualización de patrones de datos faltantes es informativa. Si ciertos valores tienden a faltar juntos, esto puede indicar problemas sistemáticos en la recolección de datos o mecanismos de missing relacionados. Las correlaciones entre indicadores de missing de diferentes variables pueden revelar estos patrones.
+
+Las estrategias de manejo de datos faltantes varían en sofisticación y validez según el contexto. El análisis de casos completos elimina todas las observaciones con cualquier dato faltante. Este método es válido bajo MCAR pero puede ser muy ineficiente si muchas observaciones tienen al menos un valor faltante. También puede introducir sesgo sustancial bajo MAR o MNAR.
+
+La imputación simple reemplaza valores faltantes con estimaciones puntuales, como la media o mediana de la variable. Aunque simple y preserva el tamaño muestral, este método subestima la variabilidad real de los datos porque trata los valores imputados como si fueran conocidos con certeza. Esto puede llevar a intervalos de confianza artificialmente estrechos y p-values incorrectos.
+
+La imputación múltiple es considerada el estándar de oro para manejar datos faltantes bajo MAR. Este método crea múltiples datasets completos, cada uno con diferentes valores imputados que reflejan la incertidumbre sobre los verdaderos valores. Los análisis se realizan en cada dataset imputado por separado, y los resultados se combinan usando reglas específicas que incorporan adecuadamente la incertidumbre tanto dentro como entre imputaciones.
+
+Los modelos de máxima verosimilitud completa (FIML) ofrecen otra alternativa sofisticada. Estos modelos estiman parámetros utilizando toda la información disponible de cada observación, sin necesidad de imputar explícitamente los valores faltantes. FIML es válido bajo MAR y es particularmente útil en modelos de ecuaciones estructurales.
+
+La decisión sobre qué estrategia usar debe considerar múltiples factores: el porcentaje y patrón de datos faltantes, el mecanismo de missing probable, la complejidad del análisis planificado, y las capacidades técnicas disponibles. Para porcentajes muy pequeños de missing (típicamente menos del cinco por ciento) y cuando hay razón para creer en MCAR, el análisis de casos completos puede ser aceptable. Para porcentajes mayores o bajo MAR, métodos más sofisticados como imputación múltiple son preferibles.
+
+Es crucial reportar transparentemente cómo se manejaron los datos faltantes en cualquier análisis. Esto incluye reportar qué variables tenían datos faltantes, cuántos, el patrón de missing, análisis de la naturaleza del missing, y justificación del método elegido para manejarlos. La transparencia permite a los lectores evaluar la validez de las conclusiones considerando las limitaciones impuestas por los datos faltantes.
+
+---
+
+# Ejercicio 8: Estadísticas Descriptivas Completas
+
+## Solución
+
+```{r ejercicio8}
+# Cargamos el dataset de escuelas de California
+data("CASchools")
+
+# Seleccionamos las variables de interés para el análisis descriptivo
+variables_analizar <- CASchools %>%
+  select(read, math, students, teachers)
+
+# Función comprehensiva para calcular estadísticas descriptivas
+calcular_estadisticas_completas <- function(variable, nombre_var) {
+  # Calculamos todas las medidas de tendencia central y dispersión
+  media <- mean(variable, na.rm = TRUE)
+  mediana <- median(variable, na.rm = TRUE)
+  desv_std <- sd(variable, na.rm = TRUE)
+  cv <- (desv_std / media) * 100  # Coeficiente de variación en porcentaje
+  minimo <- min(variable, na.rm = TRUE)
+  maximo <- max(variable, na.rm = TRUE)
+  q1 <- quantile(variable, 0.25, na.rm = TRUE)
+  q3 <- quantile(variable, 0.75, na.rm = TRUE)
+  iqr <- q3 - q1
+  
+  # Creamos un dataframe con los resultados
+  resultados <- data.frame(
+    Variable = nombre_var,
+    Media = round(media, 2),
+    Mediana = round(mediana, 2),
+    Desv_Std = round(desv_std, 2),
+    CV_Porcentaje = round(cv, 2),
+    Min = round(minimo, 2),
+    Q1 = round(q1, 2),
+    Q3 = round(q3, 2),
+    Max = round(maximo, 2),
+    IQR = round(iqr, 2)
+  )
+  
+  return(resultados)
+}
+
+# Aplicamos la función a cada variable
+estadisticas_completas <- bind_rows(
+  calcular_estadisticas_completas(CASchools$read, "Puntaje Lectura"),
+  calcular_estadisticas_completas(CASchools$math, "Puntaje Matemáticas"),
+  calcular_estadisticas_completas(CASchools$students, "Número Estudiantes"),
+  calcular_estadisticas_completas(CASchools$teachers, "Número Maestros")
+)
+
+print("=== ESTADÍSTICAS DESCRIPTIVAS COMPLETAS ===")
+print(estadisticas_completas)
+
+# Creamos histogramas para cada variable con curva de densidad superpuesta
+par(mfrow = c(2, 2))
+
+hist(CASchools$read, breaks = 30, prob = TRUE, col = "lightblue",
+     main = "Distribución de Puntajes de Lectura",
+     xlab = "Puntaje de Lectura", ylab = "Densidad")
+lines(density(CASchools$read), col = "darkblue", lwd = 2)
+
+hist(CASchools$math, breaks = 30, prob = TRUE, col = "lightgreen",
+     main = "Distribución de Puntajes de Matemáticas",
+     xlab = "Puntaje de Matemáticas", ylab = "Densidad")
+lines(density(CASchools$math), col = "darkgreen", lwd = 2)
+
+hist(CASchools$students, breaks = 30, prob = TRUE, col = "lightcoral",
+     main = "Distribución del Número de Estudiantes",
+     xlab = "Número de Estudiantes", ylab = "Densidad")
+lines(density(CASchools$students), col = "darkred", lwd = 2)
+
+hist(CASchools$teachers, breaks = 30, prob = TRUE, col = "lightyellow",
+     main = "Distribución del Número de Maestros",
+     xlab = "Número de Maestros", ylab = "Densidad")
+lines(density(CASchools$teachers), col = "orange", lwd = 2)
+
+par(mfrow = c(1, 1))
+
+# Identificamos valores atípicos usando el criterio del rango intercuartílico
+# Un valor es atípico si está más de 1.5*IQR por debajo de Q1 o por encima de Q3
+identificar_outliers <- function(variable, nombre_var) {
+  q1 <- quantile(variable, 0.25, na.rm = TRUE)
+  q3 <- quantile(variable, 0.75, na.rm = TRUE)
+  iqr <- q3 - q1
+  
+  limite_inferior <- q1 - 1.5 * iqr
+  limite_superior <- q3 + 1.5 * iqr
+  
+  outliers <- variable[variable < limite_inferior | variable > limite_superior]
+  n_outliers <- length(outliers)
+  pct_outliers <- round(100 * n_outliers / length(variable), 2)
+  
+  cat("\n", nombre_var, ":\n", sep = "")
+  cat("  Número de valores atípicos:", n_outliers, "\n")
+  cat("  Porcentaje de valores atípicos:", pct_outliers, "%\n")
+  cat("  Límite inferior:", round(limite_inferior, 2), "\n")
+  cat("  Límite superior:", round(limite_superior, 2), "\n")
+  
+  if(n_outliers > 0) {
+    cat("  Rango de outliers:", round(min(outliers), 2), "a", 
+        round(max(outliers), 2), "\n")
+  }
+}
+
+cat("\n=== ANÁLISIS DE VALORES ATÍPICOS ===")
+identificar_outliers(CASchools$read, "Puntajes de Lectura")
+identificar_outliers(CASchools$math, "Puntajes de Matemáticas")
+identificar_outliers(CASchools$students, "Número de Estudiantes")
+identificar_outliers(CASchools$teachers, "Número de Maestros")
+
+# Creamos boxplots para visualizar valores atípicos
+par(mfrow = c(2, 2))
+boxplot(CASchools$read, main = "Puntajes de Lectura", 
+        ylab = "Puntaje", col = "lightblue")
+boxplot(CASchools$math, main = "Puntajes de Matemáticas", 
+        ylab = "Puntaje", col = "lightgreen")
+boxplot(CASchools$students, main = "Número de Estudiantes", 
+        ylab = "Estudiantes", col = "lightcoral")
+boxplot(CASchools$teachers, main = "Número de Maestros", 
+        ylab = "Maestros", col = "lightyellow")
+par(mfrow = c(1, 1))
+
+# Análisis comparativo del coeficiente de variación
+cat("\n=== INTERPRETACIÓN DEL COEFICIENTE DE VARIACIÓN ===\n")
+cv_comparacion <- estadisticas_completas %>%
+  select(Variable, CV_Porcentaje) %>%
+  arrange(desc(CV_Porcentaje))
+
+print(cv_comparacion)
+```
+
+## Interpretación Teórica
+
+Las estadísticas descriptivas son la base fundamental de cualquier análisis de datos, proporcionándonos un resumen conciso de las características principales de un conjunto de variables. Estas medidas nos ayudan a entender la distribución, tendencia central y dispersión de los datos antes de proceder con análisis inferenciales más complejos.
+
+La media aritmética es la medida de tendencia central más comúnmente utilizada, calculada como la suma de todos los valores dividida por el número de observaciones. La media es sensible a valores extremos, lo que significa que outliers pueden desplazarla considerablemente del centro de la distribución típica. Esta sensibilidad es tanto una fortaleza como una debilidad: la media incorpora información de todas las observaciones, pero puede ser engañosa cuando hay valores atípicos sustanciales.
+
+La mediana, por otro lado, es el valor que divide la distribución en dos mitades iguales cuando los datos están ordenados. La mediana es robusta a valores extremos, lo que la hace particularmente útil cuando trabajamos con distribuciones asimétricas o con outliers. Cuando la media y la mediana son similares, esto sugiere una distribución aproximadamente simétrica. Una media considerablemente mayor que la mediana indica asimetría positiva (cola derecha extendida), mientras que una media menor que la mediana sugiere asimetría negativa.
+
+La desviación estándar cuantifica la dispersión promedio de los datos alrededor de la media. Una desviación estándar grande indica que los valores están muy dispersos, mientras que una pequeña indica que están concentrados cerca de la media. La desviación estándar tiene la misma unidad que la variable original, lo que facilita su interpretación. En una distribución normal, aproximadamente sesenta y ocho por ciento de las observaciones caen dentro de una desviación estándar de la media, y aproximadamente noventa y cinco por ciento caen dentro de dos desviaciones estándar.
+
+El coeficiente de variación es una medida de dispersión relativa, calculado como la desviación estándar dividida por la media y expresado como porcentaje. Esta medida es particularmente útil para comparar la variabilidad de diferentes variables que están en escalas distintas o tienen medias muy diferentes. Un coeficiente de variación alto indica alta variabilidad relativa, mientras que uno bajo indica homogeneidad relativa. Por ejemplo, si comparamos variables en diferentes unidades, no podemos comparar directamente sus desviaciones estándar, pero sí podemos comparar sus coeficientes de variación para determinar cuál es relativamente más variable.
+
+Los cuartiles dividen la distribución ordenada en cuatro partes iguales. El primer cuartil (Q1) es el valor por debajo del cual cae el veinticinco por ciento de los datos, el segundo cuartil (Q2) es la mediana, y el tercer cuartil (Q3) es el valor por debajo del cual cae el setenta y cinco por ciento. El rango intercuartílico (IQR), calculado como Q3 menos Q1, mide la dispersión del cincuenta por ciento central de los datos y es robusto a valores extremos.
+
+Los valores atípicos o outliers son observaciones que se desvían marcadamente del patrón general de los datos. El criterio del rango intercuartílico define outliers como valores que caen más de una y media veces el IQR por debajo de Q1 o por encima de Q3. Este es un criterio convencional que funciona bien para muchas distribuciones, aunque debemos recordar que la presencia de outliers no necesariamente indica errores en los datos; pueden representar observaciones legítimas pero inusuales que merecen atención especial.
+
+Los histogramas son herramientas visuales poderosas que muestran la forma completa de la distribución. Nos permiten identificar la modalidad (si la distribución tiene uno o múltiples picos), la simetría, y la presencia de valores extremos. Superponer una curva de densidad suavizada sobre el histograma ayuda a visualizar la forma subyacente de la distribución sin las irregularidades que pueden surgir de la elección particular de intervalos en el histograma.
+
+Los boxplots proporcionan un resumen visual compacto que muestra simultáneamente la mediana, los cuartiles, el rango y los valores atípicos. La caja representa el IQR, la línea dentro de la caja es la mediana, y los "bigotes" se extienden hasta el valor más extremo dentro de una y media veces el IQR de los cuartiles. Los puntos individuales más allá de los bigotes representan outliers potenciales.
+
+La interpretación del coeficiente de variación en contexto es particularmente importante. Para variables de puntajes estandarizados como los resultados de pruebas académicas, típicamente esperamos coeficientes de variación relativamente bajos porque los puntajes están diseñados para tener distribuciones relativamente consistentes. Para variables como el número de estudiantes o maestros en las escuelas, podríamos esperar coeficientes de variación más altos porque las escuelas varían enormemente en tamaño.
+
+La variable con el coeficiente de variación más alto exhibe la mayor variabilidad relativa y sugiere mayor heterogeneidad en la población. En el contexto educativo, alta variabilidad en puntajes de pruebas podría indicar desigualdades en calidad educativa entre escuelas, mientras que alta variabilidad en el tamaño de las escuelas refleja la diversidad de contextos escolares, desde pequeñas escuelas rurales hasta grandes escuelas urbanas.
+
+Es importante reconocer que las estadísticas descriptivas, aunque informativas, no capturan toda la complejidad de los datos. Dos distribuciones pueden tener la misma media, mediana y desviación estándar pero diferir dramáticamente en forma. Por esto, siempre complementamos el análisis numérico con visualizaciones que revelan aspectos de los datos que los resúmenes numéricos podrían oscurecer.
+
+---
+
+# Ejercicio 9: Transformación de Variables
+
+## Solución
+
+```{r ejercicio9}
+# Cargamos el dataset de revistas académicas
+data("Journals")
+
+# Exploramos las variables de interés antes de transformar
+summary(Journals[, c("price", "subs")])
+
+# Creamos un gráfico de dispersión con las variables originales
+plot(Journals$price, Journals$subs,
+     main = "Relación entre Precio y Suscripciones (Escala Original)",
+     xlab = "Precio de la Revista (USD)",
+     ylab = "Número de Suscripciones",
+     pch = 19, col = rgb(0, 0, 1, 0.5))
+
+# Agregamos una línea de tendencia lineal
+abline(lm(subs ~ price, data = Journals), col = "red", lwd = 2)
+
+# Calculamos la correlación en escala original
+correlacion_original <- cor(Journals$price, Journals$subs, 
+                             use = "complete.obs")
+cat("Correlación en escala original:", round(correlacion_original, 4), "\n")
+
+# Aplicamos transformaciones logarítmicas
+# El logaritmo natural es útil cuando las variables tienen distribuciones
+# asimétricas positivas o cuando esperamos relaciones multiplicativas
+Journals <- Journals %>%
+  mutate(
+    log_price = log(price),
+    log_subs = log(subs)
+  )
+
+# Creamos un gráfico con las variables transformadas
+plot(Journals$log_price, Journals$log_subs,
+     main = "Relación entre Log(Precio) y Log(Suscripciones)",
+     xlab = "Log(Precio de la Revista)",
+     ylab = "Log(Número de Suscripciones)",
+     pch = 19, col = rgb(0, 1, 0, 0.5))
+
+# Agregamos línea de tendencia en escala logarítmica
+abline(lm(log_subs ~ log_price, data = Journals), col = "red", lwd = 2)
+
+# Calculamos la correlación con variables transformadas
+correlacion_log <- cor(Journals$log_price, Journals$log_subs, 
+                       use = "complete.obs")
+cat("Correlación en escala logarítmica:", round(correlacion_log, 4), "\n")
+
+# Comparamos las correlaciones
+cat("\nCambio en correlación:", 
+    round(correlacion_log - correlacion_original, 4), "\n")
+
+# Estimamos regresiones en ambas escalas para comparar el ajuste
+# Modelo en escala original
+modelo_original <- lm(subs ~ price, data = Journals)
+cat("\n=== MODELO EN ESCALA ORIGINAL ===\n")
+print(summary(modelo_original))
+
+# Modelo con variables transformadas (log-log)
+modelo_log <- lm(log_subs ~ log_price, data = Journals)
+cat("\n=== MODELO EN ESCALA LOGARÍTMICA ===\n")
+print(summary(modelo_log))
+
+# Comparamos la bondad de ajuste visualmente
+par(mfrow = c(2, 2))
+
+# Residuos del modelo original
+plot(fitted(modelo_original), residuals(modelo_original),
+     main = "Residuos vs Ajustados (Modelo Original)",
+     xlab = "Valores Ajustados", ylab = "Residuos",
+     pch = 19, col = rgb(0, 0, 1, 0.5))
+abline(h = 0, col = "red", lty = 2)
+
+# Q-Q plot del modelo original
+qqnorm(residuals(modelo_original), main = "Q-Q Plot (Modelo Original)")
+qqline(residuals(modelo_original))
+
+# Residuos del modelo log-log
+plot(fitted(modelo_log), residuals(modelo_log),
+     main = "Residuos vs Ajustados (Modelo Log-Log)",
+     xlab = "Valores Ajustados", ylab = "Residuos",
+     pch = 19, col = rgb(0, 1, 0, 0.5))
+abline(h = 0, col = "red", lty = 2)
+
+# Q-Q plot del modelo log-log
+qqnorm(residuals(modelo_log), main = "Q-Q Plot (Modelo Log-Log)")
+qqline(residuals(modelo_log))
+
+par(mfrow = c(1, 1))
+
+# Interpretación del coeficiente en el modelo log-log como elasticidad
+cat("\n=== INTERPRETACIÓN DEL COEFICIENTE ===\n")
+cat("En el modelo log-log, el coeficiente representa la elasticidad.\n")
+cat("Coeficiente de log_price:", round(coef(modelo_log)[2], 4), "\n")
+cat("\nInterpretación: Un aumento de 1% en el precio se asocia con un\n")
+cat("cambio de", round(coef(modelo_log)[2], 4), "% en las suscripciones.\n")
+```
+
+## Interpretación Teórica
+
+La transformación de variables es una técnica fundamental en el análisis de datos que puede mejorar sustancialmente la validez y utilidad de nuestros modelos estadísticos. Las transformaciones se aplican por varias razones: para linealizar relaciones no lineales, para estabilizar varianzas heterocedásticas, para normalizar distribuciones asimétricas, o para facilitar interpretaciones teóricamente significativas.
+
+La transformación logarítmica es particularmente útil y común en economía y ciencias sociales. Cuando aplicamos logaritmos a variables que representan cantidades, precios, o magnitudes que solo pueden ser positivas, frecuentemente logramos varios beneficios simultáneamente. Primero, el logaritmo comprime el rango de valores grandes mientras expande el rango de valores pequeños, lo cual puede ayudar a que distribuciones asimétricas positivas se vuelvan más simétricas y aproximadamente normales.
+
+Segundo, el logaritmo transforma relaciones multiplicativas en relaciones aditivas. En muchos contextos económicos, esperamos efectos multiplicativos: un cambio porcentual en una variable produce un cambio porcentual en otra. En escala logarítmica, estas relaciones multiplicativas se vuelven lineales, lo cual es más fácil de modelar y analizar con técnicas estándar.
+
+Cuando aplicamos logaritmos a ambas variables en una regresión, creamos lo que se conoce como un modelo log-log. La interpretación de los coeficientes en este modelo es especialmente elegante y económicamente significativa: el coeficiente representa una elasticidad. Específicamente, nos dice el cambio porcentual en la variable dependiente asociado con un cambio del uno por ciento en la variable independiente.
+
+Por ejemplo, si estimamos que log(suscripciones) contra log(precio) y obtenemos un coeficiente negativo, esto nos dice la elasticidad-precio de la demanda por suscripciones. Un coeficiente de menos uno punto cinco significaría que la demanda es elástica: un aumento del uno por ciento en precio se asocia con una disminución del uno punto cinco por ciento en suscripciones. Esta interpretación es directa, no depende de las unidades originales, y es comparable across diferentes mercados o contextos.
+
+La correlación entre variables puede cambiar dramáticamente con transformaciones logarítmicas. En escala original, la correlación puede ser débil porque la relación no es lineal o porque valores extremos dominan el cálculo de la correlación. Después de transformar logarítmicamente, si la verdadera relación es de forma potencial (Y igual a a veces X elevado a b), obtenemos una relación lineal en escala log y típicamente una correlación mucho más fuerte.
+
+Sin embargo, debemos ser cuidadosos al comparar correlaciones antes y después de transformaciones. Estas correlaciones están midiendo aspectos diferentes de la relación entre variables. La correlación en escala original mide asociación lineal entre los valores originales, mientras que la correlación en escala log mide asociación lineal entre los logaritmos. Ambas pueden ser informativas dependiendo de nuestras preguntas de investigación.
+
+La bondad de ajuste del modelo también puede cambiar sustancialmente con transformaciones. El R cuadrado del modelo original y del modelo transformado no son directamente comparables porque están modelando variables dependientes diferentes (suscripciones versus log de suscripciones). Para comparar modelos con diferentes transformaciones de la variable dependiente, necesitamos transformar las predicciones de vuelta a la escala original y calcular medidas de ajuste comparables, o usar criterios como el AIC (Criterio de Información de Akaike) que penalizan la complejidad del modelo.
+
+Los gráficos de residuos son cruciales para evaluar si la transformación ha mejorado el modelo. En el modelo original con variables sin transformar, podríamos observar heterocedasticidad (varianza no constante) o no linealidad en los residuos. Si la transformación logarítmica es apropiada, deberíamos ver una mejora sustancial en los gráficos de residuos del modelo transformado: los residuos deberían mostrar varianza más constante y no exhibir patrones sistemáticos.
+
+El gráfico Q-Q de residuos nos ayuda a evaluar la normalidad. Desviaciones de la normalidad pueden ser menos problemáticas después de la transformación logarítmica, especialmente si la distribución original era fuertemente asimétrica positiva. Residuos más normales nos dan mayor confianza en la validez de los intervalos de confianza y tests de hipótesis basados en supuestos de normalidad.
+
+Es importante reconocer que las transformaciones no son panaceas universales. Debemos tener justificación teórica o empírica para aplicar una transformación particular. La transformación logarítmica, por ejemplo, solo tiene sentido para variables estrictamente positivas, y la interpretación de elasticidad solo es significativa en contextos donde pensamos en términos de cambios porcentuales.
+
+En el contexto de revistas académicas, la relación entre precio y suscripciones naturalmente se presta a análisis en escala logarítmica. Teóricamente, esperamos que cambios porcentuales en precio tengan efectos porcentuales en demanda, no efectos aditivos fijos. Las instituciones no compran "tantas suscripciones más" cuando el precio sube; más bien, un aumento porcentual en precio causa una reducción porcentual en suscripciones.
+
+Las transformaciones también pueden ayudarnos a identificar relaciones que no eran aparentes en escala original. Después de transformar, patrones que estaban oscurecidos por outliers o por la forma de la distribución pueden volverse claros. Sin embargo, siempre debemos preguntarnos si la relación que vemos en escala transformada refleja verdaderamente el proceso generador de datos subyacente o si es un artefacto de la transformación.
+
+Finalmente, cuando reportamos resultados basados en datos transformados, debemos comunicar claramente qué transformaciones se aplicaron y cómo interpretar los coeficientes resultantes. Las elasticidades son intuitivas para audiencias económicas pero pueden requerir explicación para audiencias generales. Siempre es útil proporcionar ejemplos concretos que ilustren la magnitud del efecto estimado.
+
+---
+
+# Ejercicio 10: Análisis Integrado - Fertilidad y Educación
+
+## Solución
+
+```{r ejercicio10}
+# Cargamos el dataset
+data("Fertility")
+
+# === PARTE A: DATOS FALTANTES ===
+cat("=== ANÁLISIS DE DATOS FALTANTES ===\n")
+missing_summary <- data.frame(
+  variable = names(Fertility),
+  n_missing = sapply(Fertility, function(x) sum(is.na(x))),
+  pct_missing = round(100 * sapply(Fertility, function(x) sum(is.na(x))) / 
+                      nrow(Fertility), 2)
+)
+print(missing_summary[missing_summary$n_missing > 0, ])
+
+# === PARTE B: ESTADÍSTICAS DESCRIPTIVAS ===
+cat("\n=== ESTADÍSTICAS DESCRIPTIVAS ===\n")
+
+# Para la variable morekids (categórica)
+tabla_morekids <- table(Fertility$morekids)
+prop_morekids <- prop.table(tabla_morekids)
+cat("\nDistribución de morekids:\n")
+print(tabla_morekids)
+cat("\nProporciones:\n")
+print(round(prop_morekids, 4))
+
+# Para la variable age (numérica)
+media_age <- mean(Fertility$age, na.rm = TRUE)
+desv_std_age <- sd(Fertility$age, na.rm = TRUE)
+cv_age <- (desv_std_age / media_age) * 100
+
+cat("\nEstadísticas para edad:\n")
+cat("Media:", round(media_age, 2), "\n")
+cat("Desviación estándar:", round(desv_std_age, 2), "\n")
+cat("Coeficiente de variación:", round(cv_age, 2), "%\n")
+
+# === PARTE C: TEST DE HIPÓTESIS DE PROPORCIONES ===
+cat("\n=== TEST DE PROPORCIONES ===\n")
+
+# Creamos categorías de educación para comparar
+# Asumimos que 'education' está en años; creamos grupos: alta vs baja educación
+Fertility <- Fertility %>%
+  mutate(educacion_alta = ifelse(education >= 12, "alta", "baja"))
+
+# Tabla de contingencia
+tabla_cont <- table(Fertility$educacion_alta, Fertility$morekids)
+cat("\nTabla de contingencia: Educación x Más de 2 hijos\n")
+print(tabla_cont)
+
+# Test chi-cuadrado de independencia
+chi_test <- chisq.test(tabla_cont)
+cat("\nTest Chi-cuadrado:\n")
+print(chi_test)
+
+# Test de proporciones
+n_alta <- sum(Fertility$educacion_alta == "alta")
+n_baja <- sum(Fertility$educacion_alta == "baja")
+morekids_alta <- sum(Fertility$educacion_alta == "alta" & 
+                     Fertility$morekids == "yes")
+morekids_baja <- sum(Fertility$educacion_alta == "baja" & 
+                     Fertility$morekids == "yes")
+
+prop_test <- prop.test(x = c(morekids_alta, morekids_baja),
+                       n = c(n_alta, n_baja))
+cat("\nTest de diferencia de proporciones:\n")
+print(prop_test)
+
+# === PARTE D: ANOVA ===
+cat("\n=== ANÁLISIS DE VARIANZA ===\n")
+
+# Creamos variable categórica del número de hijos
+# Basándonos en las variables boy1st y boy2nd, inferimos el patrón
+Fertility <- Fertility %>%
+  mutate(
+    num_hijos_cat = case_when(
+      morekids == "no" ~ "2 hijos",
+      morekids == "yes" ~ "más de 2"
+    )
+  )
+
+# Realizamos ANOVA para ver si la edad difiere por número de hijos
+modelo_anova <- aov(age ~ num_hijos_cat, data = Fertility)
+cat("\nANOVA: Edad por número de hijos\n")
+print(summary(modelo_anova))
+
+# Estadísticas descriptivas por grupo
+stats_por_grupo <- Fertility %>%
+  group_by(num_hijos_cat) %>%
+  summarise(
+    n = n(),
+    media_edad = mean(age, na.rm = TRUE),
+    sd_edad = sd(age, na.rm = TRUE)
+  )
+print(stats_por_grupo)
+
+# Boxplot
+boxplot(age ~ num_hijos_cat, data = Fertility,
+        main = "Edad según Número de Hijos",
+        xlab = "Categoría", ylab = "Edad",
+        col = c("lightblue", "lightcoral"))
+
+# === PARTE E: REGRESIÓN ===
+cat("\n=== MODELO DE REGRESIÓN ===\n")
+
+# Creamos variable numérica para morekids (0/1)
+Fertility <- Fertility %>%
+  mutate(morekids_num = ifelse(morekids == "yes", 1, 0))
+
+# Modelo logístico sería más apropiado para variable binaria,
+# pero usamos lineal como ejercicio pedagógico
+modelo_reg <- lm(morekids_num ~ age + education + afam + hispanic + other,
+                 data = Fertility)
+
+cat("\nModelo de regresión lineal para predecir más de 2 hijos:\n")
+print(summary(modelo_reg))
+
+# Intervalos de confianza
+cat("\nIntervalos de confianza para coeficientes:\n")
+print(confint(modelo_reg))
+
+# Diagnósticos del modelo
+par(mfrow = c(2, 2))
+plot(modelo_reg)
+par(mfrow = c(1, 1))
+
+# === PARTE F: TRANSFORMACIÓN ===
+cat("\n=== TRANSFORMACIÓN DE VARIABLES ===\n")
+
+# Exploramos si transformar edad mejora el modelo
+# Creamos variables transformadas
+Fertility <- Fertility %>%
+  mutate(
+    age_squared = age^2,
+    log_education = log(education + 1)  # +1 para evitar log(0)
+  )
+
+# Modelo con término cuadrático de edad
+modelo_cuadratico <- lm(morekids_num ~ age + age_squared + education + 
+                        afam + hispanic + other,
+                        data = Fertility)
+
+cat("\nModelo con término cuadrático de edad:\n")
+print(summary(modelo_cuadratico))
+
+# Comparamos modelos usando AIC
+cat("\nComparación de modelos:\n")
+cat("AIC modelo lineal:", AIC(modelo_reg), "\n")
+cat("AIC modelo cuadrático:", AIC(modelo_cuadratico), "\n")
+
+# Test F para comparar modelos anidados
+anova_comparacion <- anova(modelo_reg, modelo_cuadratico)
+cat("\nTest F de comparación de modelos:\n")
+print(anova_comparacion)
+
+# === PARTE G: CONCLUSIONES INTEGRADAS ===
+cat("\n=== CONCLUSIONES INTEGRADAS ===\n\n")
+
+cat("Este análisis exhaustivo del dataset Fertility nos permite entender\n")
+cat("múltiples aspectos de las decisiones de fertilidad:\n\n")
+
+cat("1. CALIDAD DE DATOS: El análisis revela el estado de completitud del\n")
+cat("   dataset, permitiéndonos confiar en la validez de los análisis subsecuentes.\n\n")
+
+cat("2. CARACTERÍSTICAS DESCRIPTIVAS: Las estadísticas descriptivas proporcionan\n")
+cat("   un perfil de la muestra, mostrando la distribución de edad y la proporción\n")
+cat("   de familias con más de dos hijos.\n\n")
+
+cat("3. EDUCACIÓN Y FERTILIDAD: El test de proporciones evalúa si el nivel educativo\n")
+cat("   se asocia con la probabilidad de tener más de dos hijos. La significancia\n")
+cat("   estadística se determina por el p-value comparado con nuestro nivel alpha.\n\n")
+
+cat("4. EDAD Y TAMAÑO FAMILIAR: El ANOVA examina si la edad promedio difiere entre\n")
+cat("   mujeres con diferente número de hijos, controlando estadísticamente la\n")
+cat("   variabilidad dentro de grupos.\n\n")
+
+cat("5. MODELO MULTIVARIADO: La regresión permite evaluar efectos simultáneos de\n")
+cat("   múltiples predictores, controlando por factores confusores y proporcionando\n")
+cat("   estimaciones de efecto ajustadas.\n\n")
+
+cat("6. NO LINEALIDAD: Las transformaciones exploraron si relaciones no lineales\n")
+cat("   (como efectos cuadráticos de edad) mejoran la capacidad predictiva del modelo.\n\n")
+
+cat("La integración de estos métodos proporciona una comprensión más completa y\n")
+cat("matizada que cualquier técnica individual podría ofrecer.\n")
+```
+
+## Interpretación Teórica del Análisis Integrado
+
+Este ejercicio final integra múltiples técnicas estadísticas para realizar un análisis comprehensivo de un fenómeno complejo: las decisiones de fertilidad en relación con características socioeconómicas y demográficas. La integración de métodos es superior a aplicar técnicas aisladas porque permite triangular hallazgos, verificar consistencia across análisis, y construir una narrativa coherente basada en evidencia convergente.
+
+El análisis comienza con verificación de calidad de datos, un paso que nunca debe omitirse pero frecuentemente se subestima. La presencia, patrón y mecanismo de datos faltantes pueden afectar profundamente las conclusiones de todos los análisis subsecuentes. Si detectamos que ciertos grupos son más propensos a tener datos faltantes (por ejemplo, mujeres de cierta edad o nivel educativo), esto sugiere que nuestros análisis pueden estar sesgados y debemos proceder con cautela, posiblemente usando técnicas especializadas de manejo de missing data.
+
+Las estadísticas descriptivas establecen el contexto empírico para todos los análisis inferenciales que siguen. El coeficiente de variación de la edad nos dice si la muestra es homogénea o heterogénea en términos de edad. Una muestra con amplia variación de edad es más informativa para estudiar cómo la edad se relaciona con decisiones de fertilidad, pero también puede requerir controlar por efectos de cohorte si diferentes generaciones tienen patrones de fertilidad sistemáticamente diferentes.
+
+El análisis de proporciones evalúa asociación bivariada entre educación y fertilidad. Sin embargo, esta asociación puede reflejar múltiples mecanismos causales o puede ser espuria debido a variables omitidas. Por ejemplo, mujeres con mayor educación podrían tener menos hijos porque priorizan sus carreras, o porque se casan más tarde, o porque tienen mejor acceso a anticonceptivos, o por una combinación de estos y otros factores. El análisis de proporciones establece que hay una asociación, pero no puede distinguir entre estas explicaciones alternativas.
+
+El ANOVA introduce una dimensión adicional al examinar cómo la edad se relaciona con el número de hijos. Si encontramos que mujeres con más hijos son significativamente mayores en promedio, esto podría reflejar que tener más hijos toma más tiempo, o que generaciones anteriores tenían preferencias diferentes por familia numerosa. Nuevamente, la interpretación requiere considerar el contexto y reconocer las limitaciones de inferencia causal con datos de corte transversal.
+
+El modelo de regresión multivariado es donde la integración metodológica comienza a pagar dividendos sustanciales. Al incluir simultáneamente edad, educación, y variables de raza/etnicidad como predictores, podemos estimar el efecto "neto" o "ajustado" de cada variable, controlando por las demás. Por ejemplo, si la asociación entre educación y fertilidad persiste en el modelo multivariado después de controlar por edad, esto fortalece el argumento de que educación tiene un efecto independiente más allá de simplemente estar correlacionada con edad.
+
+Los coeficientes del modelo de regresión deben interpretarse cuidadosamente. Para predictores numéricos como años de educación, el coeficiente representa el cambio esperado en la probabilidad (si usamos un modelo lineal de probabilidad) de tener más de dos hijos asociado con un año adicional de educación, manteniendo constantes edad y raza/etnicidad. Para variables categóricas de raza/etnicidad, los coeficientes representan diferencias promedio respecto al grupo de referencia, controlando por edad y educación.
+
+La significancia estadística de los coeficientes no debe confundirse con significancia práctica. Un coeficiente puede ser estadísticamente significativo (su intervalo de confianza no incluye cero) pero representar un efecto tan pequeño que carece de relevancia práctica. Conversamente, con muestras pequeñas, un efecto grande podría no alcanzar significancia estadística simplemente por falta de poder estadístico. Siempre debemos considerar tanto la significancia estadística como la magnitud del efecto.
+
+La exploración de transformaciones y no linealidad refleja reconocimiento de que las relaciones sociales raramente son perfectamente lineales. La edad, por ejemplo, podría tener una relación curvilínea con fertilidad: muy joven, las mujeres no han completado su fertilidad deseada; en edades medias, muchas han alcanzado su objetivo de familia; en edades avanzadas, factores biológicos limitan opciones. Un término cuadrático de edad puede capturar esta curvatura.
+
+La comparación de modelos usando el AIC o tests F formales nos ayuda a determinar si la complejidad adicional de incluir términos no lineales está justificada por mejoras en ajuste. El AIC penaliza la adición de parámetros, favoreciendo parsimonia. Un modelo con AIC menor es preferible, pero diferencias pequeñas en AIC no son decisivas; debemos considerar también interpretabilidad y teoría sustantiva.
+
+Los diagnósticos de residuos del modelo de regresión son cruciales para evaluar validez. Si los residuos muestran heterocedasticidad, nuestros errores estándar pueden ser incorrectos y deberíamos usar estimadores robustos. Si vemos no linealidad en los residuos, esto sugiere que transformaciones adicionales o términos de interacción podrían mejorar el modelo.
+
+La interpretación sustantiva debe siempre acompañar el análisis técnico. Las asociaciones que encontramos entre educación y fertilidad reflejan una compleja interacción de factores económicos, culturales, y de empoderamiento. Mayor educación se asocia con mayor costo de oportunidad de tiempo fuera del mercado laboral, mayor acceso a información sobre anticoncepción, cambios en preferencias hacia familias más pequeñas pero con mayor inversión por hijo, y mayor autonomía de las mujeres en decisiones reproductivas.
+
+Las limitaciones del análisis deben reconocerse explícitamente. Los datos de corte transversal observan cada mujer en un solo punto en el tiempo, lo cual complica la interpretación de relaciones con edad. Idealmente, datos longitudinales que siguen a las mismas mujeres a través del tiempo proporcionarían evidencia más fuerte sobre trayectorias de fertilidad. Además, sin asignación aleatoria de educación o características demográficas, no podemos definitivamente establecer causalidad, solo asociación.
+
+Las inferencias causales requieren supuestos adicionales que deben hacerse explícitos. Si argumentamos que educación causa menores tasas de fertilidad, estamos asumiendo implícitamente que no hay variables confusoras importantes omitidas del modelo, que la dirección de causalidad no es reversa (menor fertilidad permite más educación), y que los efectos son consistentes across la población (o al menos para el grupo estudiado).
+
+La triangulación de hallazgos across múltiples métodos fortalece las conclusiones. Si el test de proporciones, el ANOVA, y la regresión multivariada todos apuntan a la misma dirección respecto a la asociación entre educación y fertilidad, tenemos mayor confianza en el hallazgo que si dependiéramos de una sola técnica. Inconsistencias entre métodos, por otro lado, señalan la necesidad de investigación más profunda para entender las discrepancias.
+
+Finalmente, la comunicación efectiva de resultados a audiencias diversas requiere adaptar el nivel de detalle técnico. Para audiencias técnicas, debemos reportar estadísticos completos, tamaños de efecto, intervalos de confianza, y p-values. Para audiencias generales, debemos traducir hallazgos a lenguaje accesible que capture las implicaciones sustantivas sin abrumar con jerga estadística, siempre manteniendo honestidad sobre el nivel de certeza apropiado dado el diseño de estudio y la calidad de datos.
+
+---
+
+# Reflexión Final
+
+El dominio de múltiples técnicas estadísticas y la habilidad de integrarlas coherentemente es fundamental para la investigación empírica rigurosa. Cada método tiene fortalezas y limitaciones específicas, y ninguna técnica singular puede responder completamente preguntas complejas sobre fenómenos sociales y económicos. La combinación juiciosa de métodos descriptivos, exploratorios, e inferenciales, junto con verificación cuidadosa de supuestos y reconocimiento honesto de limitaciones, constituye la marca de análisis de datos de alta calidad que puede informar tanto teoría como política pública.

@@ -4,7 +4,7 @@
     <title>Unidad 2: Estadística Basica y Aplicada</title>
     <meta charset="utf-8" />
     <meta name="author" content="Nicolas Sidicaro" />
-    <script src="libs/header-attrs-2.27/header-attrs.js"></script>
+    <script src="libs/header-attrs-2.29/header-attrs.js"></script>
     <link href="libs/remark-css-0.0.1/default.css" rel="stylesheet" />
     <link href="libs/remark-css-0.0.1/metropolis.css" rel="stylesheet" />
     <link href="libs/remark-css-0.0.1/metropolis-fonts.css" rel="stylesheet" />
@@ -116,10 +116,10 @@ print(resultados)
 ## # A tibble: 4 × 2
 ##       n ancho_ic
 ##   &lt;dbl&gt;    &lt;dbl&gt;
-## 1    10    25.5 
-## 2    30    10.3 
-## 3   100     5.19
-## 4   500     2.54
+## 1    10    31.8 
+## 2    30    12.5 
+## 3   100     6.10
+## 4   500     2.66
 ```
 
 Conclusión: A mayor n, menor ancho del IC (más precisión).
@@ -245,7 +245,7 @@ shapiro.test(datos_normales)
 ## 	Shapiro-Wilk normality test
 ## 
 ## data:  datos_normales
-## W = 0.98903, p-value = 0.9209
+## W = 0.98504, p-value = 0.7733
 ```
 
 ``` r
@@ -259,7 +259,7 @@ shapiro.test(datos_exponencial)
 ## 	Shapiro-Wilk normality test
 ## 
 ## data:  datos_exponencial
-## W = 0.91511, p-value = 0.001577
+## W = 0.84853, p-value = 0.00001412
 ```
 
 ---
@@ -390,9 +390,9 @@ leveneTest(c(grupo_a, grupo_b) ~ rep(c("A", "B"), each = 50))
 
 ```
 ## Levene's Test for Homogeneity of Variance (center = median)
-##       Df F value    Pr(&gt;F)    
-## group  1    33.6 8.247e-08 ***
-##       98                      
+##       Df F value        Pr(&gt;F)    
+## group  1    33.6 0.00000008247 ***
+##       98                          
 ## ---
 ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
 ```
@@ -609,7 +609,7 @@ t.test(despues, antes, paired = TRUE)$p.value
 ```
 
 ```
-## [1] 4.239739e-06
+## [1] 0.000004239739
 ```
 
 ``` r
@@ -618,8 +618,8 @@ wilcox.test(despues, antes, paired = TRUE)$p.value
 ```
 
 ```
-## Warning in wilcox.test.default(despues, antes, paired = TRUE): cannot compute
-## exact p-value with ties
+## Warning in wilcox.test.default(despues, antes, paired = TRUE): cannot
+## compute exact p-value with ties
 ```
 
 ```
@@ -672,7 +672,7 @@ Entonces se calcula considerando la variabilidad esperada bajo `\(H_0\)`
 ## 	Pearson's Chi-squared test
 ## 
 ## data:  tabla
-## X-squared = 48.192, df = 4, p-value = 8.605e-10
+## X-squared = 48.192, df = 4, p-value = 0.0000000008605
 ```
 
 Rechazamos H0 =&gt; las variables están relacionadas 
@@ -703,7 +703,8 @@ Rechazamos H0 =&gt; las variables están relacionadas
 <script>var slideshow = remark.create({
   "highlightStyle": "github",
   "highlightLines": true,
-  "countIncrementalSlides": false
+  "countIncrementalSlides": false,
+  "ratio": "16:9"
 });
 if (window.HTMLWidgets) slideshow.on('afterShowSlide', function (slide) {
   window.dispatchEvent(new Event('resize'));
