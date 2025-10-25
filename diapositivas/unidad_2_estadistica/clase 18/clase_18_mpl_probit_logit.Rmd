@@ -113,7 +113,17 @@ summary(modelo_mpl)$coefficients %>%
   kable()
 ```
 
-**Interpretación**: Por cada punto adicional en el score crediticio, la probabilidad de aprobación aumenta 0.8 puntos porcentuales
+**Interpretación**: Por cada punto adicional en el score crediticio, la probabilidad de aprobación aumenta 0.06 puntos porcentuales, manteniendo el resto de las variables constantes
+
+---
+
+# Importante: "Puntos porcentuales" ≠ "Porcentaje"
+
+- Puntos porcentuales: Diferencia absoluta (de 40% a 50% son 10 puntos porcentuales)
+
+- Porcentaje de cambio: Cambio relativo (de 40% a 50% es un aumento del 25%)
+
+En el MPL siempre hablamos de puntos porcentuales (cambio absoluto en la probabilidad).
 
 ---
 
@@ -148,6 +158,373 @@ coeftest(modelo_mpl, vcov = vcovHC(modelo_mpl, type = "HC1"))
 ```
 
 **Nota**: Los coeficientes son iguales, pero los errores estándar cambian
+
+---
+
+# MPL: Variables Dummy
+
+## Interpretación de Variables Dicotómicas
+
+**Variable dummy**: Variable que toma valores 0 o 1 (ej: género, región, tratamiento)
+
+En el MPL, el coeficiente de una dummy tiene una interpretación especial:
+
+$$Y_i = \beta_0 + \beta_1 X_i + \beta_2 D_i + u_i$$
+
+donde $D_i \in \{0, 1\}$
+
+**Interpretación de $\beta_2$**:
+
+- Diferencia en la probabilidad entre tener la característica (D=1) vs no tenerla (D=0)
+- **NO** es un cambio incremental, es una **diferencia de grupos**
+
+---
+
+# MPL: Ejemplo con Variable Dummy
+
+```{r mpl-dummy-data, include=FALSE}
+# Crear variable dummy para el ejemplo
+set.seed(456)
+datos$curso_prep <- rbinom(n, 1, 0.4)
+
+# Reestimar modelo con dummy
+z_dummy <- -8 + 0.00008*datos$ingreso + 0.01*datos$score + 
+           0.02*datos$edad + 0.8*datos$curso_prep
+prob_dummy <- 1/(1 + exp(-z_dummy))
+datos$aprobo_dummy <- rbinom(n, 1, prob_dummy)
+```
+
+```{r mpl-dummy-modelo}
+# Estimar MPL con variable dummy
+modelo_mpl_dummy <- lm(aprobo_dummy ~ ingreso + score + curso_prep, 
+                       data = datos)
+
+summary(modelo_mpl_dummy)$coefficients %>% 
+  round(6) %>% 
+  kable()
+```
+
+**Interpretación del coeficiente de `curso_prep`**:
+
+- Si $\beta_{curso\_prep} = 0.047$ → Las personas que tomaron el curso preparatorio tienen, en promedio, una probabilidad **4,7 puntos porcentuales mayor** de aprobar, manteniendo ingreso y score constantes, respecto a las que no realizaron el curso preparatorio
+
+---
+
+# MPL: Visualización - Variable Dummy
+
+```{r mpl-dummy-plot, echo=FALSE, fig.height=5, fig.width=9}
+# Crear datos para predicción
+pred_data_dummy <- expand.grid(
+  score = seq(min(datos$score), max(datos$score), length.out = 100),
+  ingreso = mean(datos$ingreso),
+  curso_prep = c(0, 1)
+)
+
+# Predicciones
+pred_data_dummy$prob_pred <- predict(modelo_mpl_dummy, 
+                                     newdata = pred_data_dummy)
+
+# Gráfico
+ggplot() +
+  geom_point(data = datos, 
+             aes(x = score, y = aprobo_dummy, 
+                 color = factor(curso_prep, labels = c("Sin curso", "Con curso"))),
+             alpha = 0.3, size = 2) +
+  geom_line(data = pred_data_dummy,
+            aes(x = score, y = prob_pred, 
+                color = factor(curso_prep, labels = c("Sin curso", "Con curso")),
+                linetype = factor(curso_prep, labels = c("Sin curso", "Con curso"))),
+            size = 1.5) +
+  scale_color_manual(values = c("Sin curso" = "red", "Con curso" = "blue")) +
+  scale_linetype_manual(values = c("Sin curso" = "dashed", "Con curso" = "solid")) +
+  labs(title = "MPL: Efecto de Variable Dummy sobre la Probabilidad",
+       subtitle = paste("Diferencia vertical = β_curso_prep =", 
+                       round(coef(modelo_mpl_dummy)["curso_prep"], 3)),
+       x = "Score Crediticio", 
+       y = "P(Aprobación = 1)",
+       color = "Curso Prep.",
+       linetype = "Curso Prep.") +
+  theme_minimal(base_size = 14) +
+  theme(legend.position = "bottom") +
+  annotate("segment", x = 600, xend = 600,
+           y = predict(modelo_mpl_dummy, 
+                      newdata = data.frame(score = 600, 
+                                          ingreso = mean(datos$ingreso),
+                                          curso_prep = 0)),
+           yend = predict(modelo_mpl_dummy, 
+                         newdata = data.frame(score = 600, 
+                                             ingreso = mean(datos$ingreso),
+                                             curso_prep = 1)),
+           arrow = arrow(ends = "both", length = unit(0.2, "cm")),
+           color = "darkgreen", size = 1) +
+  annotate("text", x = 630, 
+           y = mean(c(
+             predict(modelo_mpl_dummy, 
+                    newdata = data.frame(score = 600, 
+                                        ingreso = mean(datos$ingreso),
+                                        curso_prep = 0)),
+             predict(modelo_mpl_dummy, 
+                    newdata = data.frame(score = 600, 
+                                        ingreso = mean(datos$ingreso),
+                                        curso_prep = 1))
+           )),
+           label = paste("β =", round(coef(modelo_mpl_dummy)["curso_prep"], 3)),
+           color = "darkgreen", size = 5, fontface = "bold")
+```
+
+**Nota**: Las líneas son **paralelas** → el efecto de la dummy es **constante** para todos los valores de X
+
+---
+
+# MPL: Interpretación - Dummy vs Continua
+
+## Diferencia Clave en Interpretación
+
+| Tipo de Variable | Interpretación del Coeficiente |
+|------------------|-------------------------------|
+| **Continua** (ej: score) | Cambio en probabilidad por **cada unidad adicional** |
+| **Dummy** (ej: curso_prep) | **Diferencia total** en probabilidad entre grupos |
+
+---
+
+# MPL: Variables Categóricas
+
+## Más de Dos Categorías
+
+**Variable categórica con K categorías** → Se crean K-1 variables dummy
+
+**Ejemplo**: Variable `región` con 3 categorías (Norte, Sur, Oeste)
+
+- Se crea dummy para 2 categorías (ej: `sur` y `oeste`)
+- La tercera categoría (`norte`) es la **categoría de referencia**
+
+$$Y_i = \beta_0 + \beta_1 X_i + \beta_2 Sur_i + \beta_3 Oeste_i + u_i$$
+
+**Interpretación**:
+
+- $\beta_2$ = Diferencia en probabilidad entre Sur vs **Norte** (referencia)
+- $\beta_3$ = Diferencia en probabilidad entre Oeste vs **Norte** (referencia)
+
+---
+
+# MPL: Ejemplo - Variable Categórica
+
+```{r mpl-categorica-data, include=FALSE}
+# Crear variable categórica para el ejemplo
+set.seed(789)
+datos$region <- sample(c("Norte", "Sur", "Oeste"), n, replace = TRUE, 
+                       prob = c(0.4, 0.3, 0.3))
+
+# Efecto de región en probabilidad
+efecto_region <- case_when(
+  datos$region == "Norte" ~ 0,      # Referencia
+  datos$region == "Sur" ~ 0.12,     # +12 pp
+  datos$region == "Oeste" ~ -0.08   # -8 pp
+)
+
+z_region <- -8 + 0.00008*datos$ingreso + 0.01*datos$score + efecto_region
+prob_region <- 1/(1 + exp(-z_region))
+datos$aprobo_region <- rbinom(n, 1, prob_region)
+```
+
+```{r mpl-categorica-modelo}
+# R automáticamente crea las dummies
+modelo_mpl_region <- lm(aprobo_region ~ ingreso + score + region, 
+                        data = datos)
+
+summary(modelo_mpl_region)$coefficients %>% 
+  round(6) %>% 
+  kable()
+```
+
+---
+
+# MPL: Ejemplo - Variable Categórica
+
+**Interpretación**:
+
+- `regionSur`: Probabilidad de aprobar en el Sur es, en promedio, 3,2 puntos porcentuales **mayor** que en el Norte, ceteris paribus el resto de las variables
+- `regionOeste`: Probabilidad de aprobar en el Oeste es, en promedio, 0.2 puntos porcentuales **mayor** que en el Norte
+
+---
+
+# MPL: Visualización - Variable Categórica
+
+```{r mpl-categorica-plot, echo=FALSE, fig.height=5, fig.width=9}
+# Crear datos para predicción
+pred_data_region <- expand.grid(
+  score = seq(min(datos$score), max(datos$score), length.out = 100),
+  ingreso = mean(datos$ingreso),
+  region = c("Norte", "Sur", "Oeste")
+)
+
+# Predicciones
+pred_data_region$prob_pred <- predict(modelo_mpl_region, 
+                                      newdata = pred_data_region)
+
+# Gráfico
+ggplot() +
+  geom_point(data = datos, 
+             aes(x = score, y = aprobo_region, color = region),
+             alpha = 0.3, size = 2) +
+  geom_line(data = pred_data_region,
+            aes(x = score, y = prob_pred, color = region, linetype = region),
+            size = 1.5) +
+  scale_color_manual(values = c("Norte" = "darkgreen", 
+                                "Sur" = "blue", 
+                                "Oeste" = "red")) +
+  scale_linetype_manual(values = c("Norte" = "solid", 
+                                   "Sur" = "dashed", 
+                                   "Oeste" = "dotted")) +
+  labs(title = "MPL: Efecto de Variable Categórica sobre la Probabilidad",
+       subtitle = "Cada región tiene una línea paralela (intercepto diferente)",
+       x = "Score Crediticio", 
+       y = "P(Aprobación = 1)",
+       color = "Región",
+       linetype = "Región") +
+  theme_minimal(base_size = 14) +
+  theme(legend.position = "bottom")
+```
+
+**Nota**: Las tres líneas son **paralelas** → diferencias constantes entre regiones
+
+---
+
+# MPL: Comparaciones entre Categorías
+
+## ¿Cómo comparar Sur vs Oeste?
+
+**El modelo solo compara cada categoría vs la referencia**
+
+Para comparar Sur vs Oeste:
+
+**Opción 1**: Cambiar la categoría de referencia
+
+```{r cambiar-referencia}
+# Cambiar referencia a "Sur"
+datos$region_ref_sur <- relevel(factor(datos$region), ref = "Sur")
+
+modelo_ref_sur <- lm(aprobo_region ~ ingreso + score + region_ref_sur, 
+                     data = datos)
+
+# Ahora el coeficiente de "Oeste" compara Oeste vs Sur
+coef(modelo_ref_sur)["region_ref_surOeste"] %>% round(4)
+```
+
+---
+
+# MPL: Comparaciones entre Categorías (cont.)
+
+**Opción 2**: Test de hipótesis lineal
+
+```{r test-hipotesis, message=FALSE}
+library(car)
+
+# H0: β_Sur = β_Oeste (equivalente a β_Sur - β_Oeste = 0)
+linearHypothesis(modelo_mpl_region, 
+                 "regionSur - regionOeste = 0")
+```
+
+**Interpretación**: 
+
+- Rechazamos H0 → Las probabilidades en Sur y Oeste son **significativamente diferentes**
+- No rechazamos → No hay evidencia de diferencia entre Sur y Oeste
+
+---
+
+# MPL: Comparaciones entre Categorías (cont.)
+
+En este caso, el p-value del test es de 0.2587, por lo que no rechazamos la hipótesis nula. Es decir, no hay evidencia suficiente para afirmar que haya diferecia entre Sur y Oeste. 
+
+Aunque los coeficientes estimados para Sur y Oeste puedan ser numéricamente distintos, esa diferencia no es estadísticamente significativa. Es decir, la diferencia observada podría deberse simplemente al azar del muestreo.
+
+---
+
+# MPL: Interacciones con Dummies
+
+## ¿Qué pasa si el efecto NO es paralelo?
+
+**Modelo con interacción**: Permite que el efecto de X varíe según la dummy
+
+$$Y_i = \beta_0 + \beta_1 X_i + \beta_2 D_i + \beta_3 (X_i \times D_i) + u_i$$
+
+- $\beta_1$: Efecto de X cuando D=0
+- $\beta_1 + \beta_3$: Efecto de X cuando D=1
+- $\beta_3$: **Diferencia en el efecto** de X entre grupos
+
+```{r mpl-interaccion}
+# Modelo con interacción
+modelo_interaccion <- lm(aprobo_dummy ~ score * curso_prep + ingreso, 
+                         data = datos)
+
+coef(modelo_interaccion)[c("score", "curso_prep", "score:curso_prep")] %>%
+  round(6)
+```
+
+---
+
+# MPL: Visualización - Interacción
+
+```{r mpl-interaccion-plot, echo=FALSE, fig.height=5, fig.width=9}
+# Predicciones con interacción
+pred_interaccion <- expand.grid(
+  score = seq(min(datos$score), max(datos$score), length.out = 100),
+  ingreso = mean(datos$ingreso),
+  curso_prep = c(0, 1)
+)
+
+pred_interaccion$prob_pred <- predict(modelo_interaccion, 
+                                      newdata = pred_interaccion)
+
+# Comparar modelo con y sin interacción
+pred_sin_int <- pred_data_dummy
+pred_sin_int$modelo <- "Sin interacción"
+pred_con_int <- pred_interaccion
+pred_con_int$modelo <- "Con interacción"
+
+pred_combinado <- bind_rows(pred_sin_int, pred_con_int)
+
+ggplot(pred_combinado, 
+       aes(x = score, y = prob_pred, 
+           color = factor(curso_prep, labels = c("Sin curso", "Con curso")),
+           linetype = modelo)) +
+  geom_line(size = 1.3) +
+  scale_color_manual(values = c("Sin curso" = "red", "Con curso" = "blue")) +
+  scale_linetype_manual(values = c("Sin interacción" = "dashed", 
+                                   "Con interacción" = "solid")) +
+  labs(title = "MPL: Efecto de Interacción",
+       subtitle = "Sin interacción = líneas paralelas | Con interacción = pendientes diferentes",
+       x = "Score Crediticio", 
+       y = "P(Aprobación = 1)",
+       color = "Curso Prep.",
+       linetype = "Modelo") +
+  theme_minimal(base_size = 14) +
+  theme(legend.position = "bottom")
+```
+
+**Interpretación**: Si hay interacción significativa → el efecto del score depende de si tomó el curso
+
+---
+
+# MPL: Resumen - Variables Dummy y Categóricas
+
+**Variables Dummy (0/1)**:
+
+- ✓ Coeficiente = diferencia de probabilidad entre grupos
+- ✓ Multiplicar por 100 para puntos porcentuales
+- ✓ Líneas paralelas en gráficos
+
+**Variables Categóricas (>2 categorías)**:
+
+- ✓ Se crean K-1 dummies automáticamente
+- ✓ Cada coeficiente compara vs categoría de referencia
+- ✓ Usar `relevel()` para cambiar referencia
+- ✓ Usar `linearHypothesis()` para comparar entre categorías no-referencia
+
+**Interacciones**:
+
+- ✓ Permiten efectos no paralelos
+- ✓ Interpretar: "el efecto de X es diferente según D"
 
 ---
 
@@ -243,8 +620,6 @@ pred_data %>%
   geom_line(linewidth = 1.2) +
   geom_point(data = datos, aes(x = score, y = aprobo), 
              inherit.aes = FALSE, alpha = 0.1, color = "gray50") +
-  scale_color_manual(values = c("mpl" = "red", "logit" = "blue", "probit" = "darkgreen"),
-                     labels = c("MPL", "Logit", "Probit")) +
   labs(title = "Comparación: MPL vs Logit vs Probit",
        x = "Score Crediticio", y = "P(Aprobación = 1)",
        color = "Modelo") +
@@ -344,9 +719,7 @@ summary(efectos_logit) %>%
 
 **Interpretación práctica**:
 
-- Un punto adicional en el score crediticio aumenta la probabilidad de aprobación en **0.8 puntos porcentuales**
-- $1,000 adicionales de ingreso aumentan la probabilidad en **0.6 puntos porcentuales**
-
+- Un punto adicional en el score crediticio aumenta la probabilidad de aprobación en **0.06 puntos porcentuales**
 ---
 
 # Solución 2: Odds-Ratios (Solo Logit)
@@ -364,32 +737,13 @@ tibble(
 ) %>% kable()
 ```
 
-**Interpretación**: Un punto adicional en el score multiplica las chances de aprobación por 1.0083 (aumento del 0.83%)
+**Interpretación**: Un punto adicional en el score multiplica las chances de aprobación por 1.012
 
 ---
 
-# Variables Dicotómicas
+# Variables Dicotómicas en Logit/Probit
 
-Cuando la variable independiente es dicotómica (ej: sexo, región):
-
-**Efecto marginal = Diferencia de probabilidades entre grupos**
-
-```{r dummy-ejemplo, echo=FALSE}
-# Ejemplo con variable dummy
-datos$mujer <- rbinom(n, 1, 0.5)
-modelo_dummy <- glm(aprobo ~ score + mujer, data = datos, 
-                    family = binomial(link = "logit"))
-ef_dummy <- margins(modelo_dummy)
-```
-
-```{r tabla-dummy, echo=FALSE}
-summary(ef_dummy) %>%
-  select(factor, AME, SE, p) %>%
-  kable(digits = 4, col.names = c("Variable", "Efecto Marginal", 
-                                   "Error Est.", "p-value"))
-```
-
-**Interpretación**: Si el coeficiente de "mujer" fuera -0.15 → "Ser mujer reduce la probabilidad de aprobación en 15 puntos porcentuales"
+Una vez que se calculan los efectos marginales promedio en un modelo Probit o Logit, las interpretaciones de las variables categóricas y dummies son las mismas que en el MPL. Se tratan de diferencias de puntos porcentuales entre grupos. 
 
 ---
 

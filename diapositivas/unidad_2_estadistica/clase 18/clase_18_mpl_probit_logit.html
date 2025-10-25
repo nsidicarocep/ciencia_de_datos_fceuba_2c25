@@ -98,7 +98,17 @@ summary(modelo_mpl)$coefficients %&gt;%
 |score       | 0.000644|   0.000079| 8.158776|           0.000000|
 |edad        | 0.000705|   0.000679| 1.038645|           0.299222|
 
-**Interpretación**: Por cada punto adicional en el score crediticio, la probabilidad de aprobación aumenta 0.8 puntos porcentuales
+**Interpretación**: Por cada punto adicional en el score crediticio, la probabilidad de aprobación aumenta 0.06 puntos porcentuales, manteniendo el resto de las variables constantes
+
+---
+
+# Importante: "Puntos porcentuales" ≠ "Porcentaje"
+
+- Puntos porcentuales: Diferencia absoluta (de 40% a 50% son 10 puntos porcentuales)
+
+- Porcentaje de cambio: Cambio relativo (de 40% a 50% es un aumento del 25%)
+
+En el MPL siempre hablamos de puntos porcentuales (cambio absoluto en la probabilidad).
 
 ---
 
@@ -153,6 +163,267 @@ coeftest(modelo_mpl, vcov = vcovHC(modelo_mpl, type = "HC1"))
 ```
 
 **Nota**: Los coeficientes son iguales, pero los errores estándar cambian
+
+---
+
+# MPL: Variables Dummy
+
+## Interpretación de Variables Dicotómicas
+
+**Variable dummy**: Variable que toma valores 0 o 1 (ej: género, región, tratamiento)
+
+En el MPL, el coeficiente de una dummy tiene una interpretación especial:
+
+`$$Y_i = \beta_0 + \beta_1 X_i + \beta_2 D_i + u_i$$`
+
+donde `\(D_i \in \{0, 1\}\)`
+
+**Interpretación de `\(\beta_2\)`**:
+
+- Diferencia en la probabilidad entre tener la característica (D=1) vs no tenerla (D=0)
+- **NO** es un cambio incremental, es una **diferencia de grupos**
+
+---
+
+# MPL: Ejemplo con Variable Dummy
+
+
+
+
+``` r
+# Estimar MPL con variable dummy
+modelo_mpl_dummy &lt;- lm(aprobo_dummy ~ ingreso + score + curso_prep, 
+                       data = datos)
+
+summary(modelo_mpl_dummy)$coefficients %&gt;% 
+  round(6) %&gt;% 
+  kable()
+```
+
+
+
+|            | Estimate| Std. Error|  t value| Pr(&gt;&amp;#124;t&amp;#124;)|
+|:-----------|--------:|----------:|--------:|------------------:|
+|(Intercept) | 0.325010|   0.056662| 5.735940|           0.000000|
+|ingreso     | 0.000004|   0.000001| 7.161654|           0.000000|
+|score       | 0.000605|   0.000078| 7.733997|           0.000000|
+|curso_prep  | 0.046916|   0.015488| 3.029283|           0.002515|
+
+**Interpretación del coeficiente de `curso_prep`**:
+
+- Si `\(\beta_{curso\_prep} = 0.047\)` → Las personas que tomaron el curso preparatorio tienen, en promedio, una probabilidad **4,7 puntos porcentuales mayor** de aprobar, manteniendo ingreso y score constantes, respecto a las que no realizaron el curso preparatorio
+
+---
+
+# MPL: Visualización - Variable Dummy
+
+![](clase_18_mpl_probit_logit_files/figure-html/mpl-dummy-plot-1.png)&lt;!-- --&gt;
+
+**Nota**: Las líneas son **paralelas** → el efecto de la dummy es **constante** para todos los valores de X
+
+---
+
+# MPL: Interpretación - Dummy vs Continua
+
+## Diferencia Clave en Interpretación
+
+| Tipo de Variable | Interpretación del Coeficiente |
+|------------------|-------------------------------|
+| **Continua** (ej: score) | Cambio en probabilidad por **cada unidad adicional** |
+| **Dummy** (ej: curso_prep) | **Diferencia total** en probabilidad entre grupos |
+
+---
+
+# MPL: Variables Categóricas
+
+## Más de Dos Categorías
+
+**Variable categórica con K categorías** → Se crean K-1 variables dummy
+
+**Ejemplo**: Variable `región` con 3 categorías (Norte, Sur, Oeste)
+
+- Se crea dummy para 2 categorías (ej: `sur` y `oeste`)
+- La tercera categoría (`norte`) es la **categoría de referencia**
+
+`$$Y_i = \beta_0 + \beta_1 X_i + \beta_2 Sur_i + \beta_3 Oeste_i + u_i$$`
+
+**Interpretación**:
+
+- `\(\beta_2\)` = Diferencia en probabilidad entre Sur vs **Norte** (referencia)
+- `\(\beta_3\)` = Diferencia en probabilidad entre Oeste vs **Norte** (referencia)
+
+---
+
+# MPL: Ejemplo - Variable Categórica
+
+
+
+
+``` r
+# R automáticamente crea las dummies
+modelo_mpl_region &lt;- lm(aprobo_region ~ ingreso + score + region, 
+                        data = datos)
+
+summary(modelo_mpl_region)$coefficients %&gt;% 
+  round(6) %&gt;% 
+  kable()
+```
+
+
+
+|            |  Estimate| Std. Error|   t value| Pr(&gt;&amp;#124;t&amp;#124;)|
+|:-----------|---------:|----------:|---------:|------------------:|
+|(Intercept) | -0.195647|   0.074406| -2.629457|           0.008684|
+|ingreso     |  0.000008|   0.000001| 11.083424|           0.000000|
+|score       |  0.001001|   0.000103|  9.736771|           0.000000|
+|regionOeste |  0.002250|   0.024858|  0.090500|           0.927908|
+|regionSur   |  0.031872|   0.023873|  1.335041|           0.182168|
+
+---
+
+# MPL: Ejemplo - Variable Categórica
+
+**Interpretación**:
+
+- `regionSur`: Probabilidad de aprobar en el Sur es, en promedio, 3,2 puntos porcentuales **mayor** que en el Norte, ceteris paribus el resto de las variables
+- `regionOeste`: Probabilidad de aprobar en el Oeste es, en promedio, 0.2 puntos porcentuales **mayor** que en el Norte
+
+---
+
+# MPL: Visualización - Variable Categórica
+
+![](clase_18_mpl_probit_logit_files/figure-html/mpl-categorica-plot-1.png)&lt;!-- --&gt;
+
+**Nota**: Las tres líneas son **paralelas** → diferencias constantes entre regiones
+
+---
+
+# MPL: Comparaciones entre Categorías
+
+## ¿Cómo comparar Sur vs Oeste?
+
+**El modelo solo compara cada categoría vs la referencia**
+
+Para comparar Sur vs Oeste:
+
+**Opción 1**: Cambiar la categoría de referencia
+
+
+``` r
+# Cambiar referencia a "Sur"
+datos$region_ref_sur &lt;- relevel(factor(datos$region), ref = "Sur")
+
+modelo_ref_sur &lt;- lm(aprobo_region ~ ingreso + score + region_ref_sur, 
+                     data = datos)
+
+# Ahora el coeficiente de "Oeste" compara Oeste vs Sur
+coef(modelo_ref_sur)["region_ref_surOeste"] %&gt;% round(4)
+```
+
+```
+## region_ref_surOeste 
+##             -0.0296
+```
+
+---
+
+# MPL: Comparaciones entre Categorías (cont.)
+
+**Opción 2**: Test de hipótesis lineal
+
+
+``` r
+library(car)
+
+# H0: β_Sur = β_Oeste (equivalente a β_Sur - β_Oeste = 0)
+linearHypothesis(modelo_mpl_region, 
+                 "regionSur - regionOeste = 0")
+```
+
+```
+## 
+## Linear hypothesis test:
+## - regionOeste  + regionSur = 0
+## 
+## Model 1: restricted model
+## Model 2: aprobo_region ~ ingreso + score + region
+## 
+##   Res.Df    RSS Df Sum of Sq      F Pr(&gt;F)
+## 1    996 101.09                           
+## 2    995 100.97  1   0.12959 1.2771 0.2587
+```
+
+**Interpretación**: 
+
+- Rechazamos H0 → Las probabilidades en Sur y Oeste son **significativamente diferentes**
+- No rechazamos → No hay evidencia de diferencia entre Sur y Oeste
+
+---
+
+# MPL: Comparaciones entre Categorías (cont.)
+
+En este caso, el p-value del test es de 0.2587, por lo que no rechazamos la hipótesis nula. Es decir, no hay evidencia suficiente para afirmar que haya diferecia entre Sur y Oeste. 
+
+Aunque los coeficientes estimados para Sur y Oeste puedan ser numéricamente distintos, esa diferencia no es estadísticamente significativa. Es decir, la diferencia observada podría deberse simplemente al azar del muestreo.
+
+---
+
+# MPL: Interacciones con Dummies
+
+## ¿Qué pasa si el efecto NO es paralelo?
+
+**Modelo con interacción**: Permite que el efecto de X varíe según la dummy
+
+`$$Y_i = \beta_0 + \beta_1 X_i + \beta_2 D_i + \beta_3 (X_i \times D_i) + u_i$$`
+
+- `\(\beta_1\)`: Efecto de X cuando D=0
+- `\(\beta_1 + \beta_3\)`: Efecto de X cuando D=1
+- `\(\beta_3\)`: **Diferencia en el efecto** de X entre grupos
+
+
+``` r
+# Modelo con interacción
+modelo_interaccion &lt;- lm(aprobo_dummy ~ score * curso_prep + ingreso, 
+                         data = datos)
+
+coef(modelo_interaccion)[c("score", "curso_prep", "score:curso_prep")] %&gt;%
+  round(6)
+```
+
+```
+##            score       curso_prep score:curso_prep 
+##         0.000792         0.325089        -0.000427
+```
+
+---
+
+# MPL: Visualización - Interacción
+
+![](clase_18_mpl_probit_logit_files/figure-html/mpl-interaccion-plot-1.png)&lt;!-- --&gt;
+
+**Interpretación**: Si hay interacción significativa → el efecto del score depende de si tomó el curso
+
+---
+
+# MPL: Resumen - Variables Dummy y Categóricas
+
+**Variables Dummy (0/1)**:
+
+- ✓ Coeficiente = diferencia de probabilidad entre grupos
+- ✓ Multiplicar por 100 para puntos porcentuales
+- ✓ Líneas paralelas en gráficos
+
+**Variables Categóricas (&gt;2 categorías)**:
+
+- ✓ Se crean K-1 dummies automáticamente
+- ✓ Cada coeficiente compara vs categoría de referencia
+- ✓ Usar `relevel()` para cambiar referencia
+- ✓ Usar `linearHypothesis()` para comparar entre categorías no-referencia
+
+**Interacciones**:
+
+- ✓ Permiten efectos no paralelos
+- ✓ Interpretar: "el efecto de X es diferente según D"
 
 ---
 
@@ -330,9 +601,7 @@ summary(efectos_logit) %&gt;%
 
 **Interpretación práctica**:
 
-- Un punto adicional en el score crediticio aumenta la probabilidad de aprobación en **0.8 puntos porcentuales**
-- $1,000 adicionales de ingreso aumentan la probabilidad en **0.6 puntos porcentuales**
-
+- Un punto adicional en el score crediticio aumenta la probabilidad de aprobación en **0.06 puntos porcentuales**
 ---
 
 # Solución 2: Odds-Ratios (Solo Logit)
@@ -360,25 +629,13 @@ tibble(
 |score       |     1.0120|
 |edad        |     1.0198|
 
-**Interpretación**: Un punto adicional en el score multiplica las chances de aprobación por 1.0083 (aumento del 0.83%)
+**Interpretación**: Un punto adicional en el score multiplica las chances de aprobación por 1.012
 
 ---
 
-# Variables Dicotómicas
+# Variables Dicotómicas en Logit/Probit
 
-Cuando la variable independiente es dicotómica (ej: sexo, región):
-
-**Efecto marginal = Diferencia de probabilidades entre grupos**
-
-
-
-
-|Variable | Efecto Marginal| Error Est.| p-value|
-|:--------|---------------:|----------:|-------:|
-|mujer    |          0.0236|     0.0161|  0.1415|
-|score    |          0.0007|     0.0001|  0.0000|
-
-**Interpretación**: Si el coeficiente de "mujer" fuera -0.15 → "Ser mujer reduce la probabilidad de aprobación en 15 puntos porcentuales"
+Una vez que se calculan los efectos marginales promedio en un modelo Probit o Logit, las interpretaciones de las variables categóricas y dummies son las mismas que en el MPL. Se tratan de diferencias de puntos porcentuales entre grupos. 
 
 ---
 
