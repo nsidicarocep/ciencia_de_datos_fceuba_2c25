@@ -1,27 +1,38 @@
----
-title: "Principios de Buena Visualización"
-subtitle: "Visualización de Datos con R"
-author: "Prof. Nicolás Sidicaro - FCE-UBA"
-date: "`r Sys.Date()`"
-output:
-  xaringan::moon_reader:
-    css: [default, metropolis, metropolis-fonts]
-    lib_dir: libs
-    nature:
-      highlightStyle: github
-      highlightLines: true
-      countIncrementalSlides: false
-      ratio: "16:9"
+<!DOCTYPE html>
+<html lang="" xml:lang="">
+  <head>
+    <title>Principios de Buena Visualización</title>
+    <meta charset="utf-8" />
+    <meta name="author" content="Prof. Nicolás Sidicaro - FCE-UBA" />
+    <meta name="date" content="2025-10-28" />
+    <script src="libs/header-attrs/header-attrs.js"></script>
+    <link href="libs/remark-css/default.css" rel="stylesheet" />
+    <link href="libs/remark-css/metropolis.css" rel="stylesheet" />
+    <link href="libs/remark-css/metropolis-fonts.css" rel="stylesheet" />
+    <script src="libs/kePrint/kePrint.js"></script>
+    <link href="libs/lightable/lightable.css" rel="stylesheet" />
+  </head>
+  <body>
+    <textarea id="source">
+class: center, middle, inverse, title-slide
+
+.title[
+# Principios de Buena Visualización
+]
+.subtitle[
+## Visualización de Datos con R
+]
+.author[
+### Prof. Nicolás Sidicaro - FCE-UBA
+]
+.date[
+### 2025-10-28
+]
+
 ---
 
-```{r setup, include=FALSE}
-options(htmltools.dir.version = FALSE)
-knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE,
-                      fig.retina = 3, fig.width = 8, fig.height = 6)
-library(ggplot2)
-library(dplyr)
-library(knitr)
-```
+
+
 
 class: inverse, center, middle
 
@@ -74,7 +85,7 @@ class: inverse, center, middle
 
 ### **Claridad antes que belleza**
 
-> "La excelencia en el diseño estadístico consiste en ideas complejas comunicadas con claridad, precisión y eficiencia" - Edward Tufte
+&gt; "La excelencia en el diseño estadístico consiste en ideas complejas comunicadas con claridad, precisión y eficiencia" - Edward Tufte
 
 ### Los tres pilares:
 
@@ -86,7 +97,7 @@ class: inverse, center, middle
 
 # Principios de Percepción Visual
 
-### **Jerarquía de precisión perceptual** (Cleveland & McGill, 1984):
+### **Jerarquía de precisión perceptual** (Cleveland &amp; McGill, 1984):
 
 1. **Posición** en escala común (más preciso)
 2. **Posición** en escalas no alineadas  
@@ -203,21 +214,7 @@ Distinguimos automáticamente entre elemento principal (figura) y contexto (fond
 - **Énfasis**: Color saturado para figura, grises para fondo
 - **Jerarquía**: Lo importante "emerge" visualmente
 
-```{r figura-fondo-example, echo=FALSE, fig.height=3}
-# Ejemplo de figura-fondo
-datos_ejemplo <- data.frame(
-  categoria = c("A", "B", "C", "D", "E"),
-  valor = c(23, 45, 67, 34, 56),
-  destacar = c(FALSE, FALSE, TRUE, FALSE, FALSE)
-)
-
-ggplot(datos_ejemplo, aes(x = categoria, y = valor, fill = destacar)) +
-  geom_col() +
-  scale_fill_manual(values = c("grey70", "steelblue")) +
-  labs(title = "Categoría C como FIGURA, resto como FONDO") +
-  theme_minimal() +
-  theme(legend.position = "none")
-```
+&lt;img src="clase20_viz_1_files/figure-html/figura-fondo-example-1.png" width="576" /&gt;
 
 ---
 
@@ -298,32 +295,7 @@ Visualizaciones intuitivas que aprovechan la percepción natural del cerebro
 
 # Uso del Color: Errores Comunes
 
-```{r color-examples, echo=FALSE, fig.height=4}
-# Crear datos de ejemplo
-datos_ventas <- data.frame(
-  mes = c("Ene", "Feb", "Mar", "Abr", "May", "Jun"),
-  ventas = c(120, 150, 180, 160, 200, 190),
-  tipo = rep("Ventas", 6)
-)
-
-# Gráfico problemático - colores innecesarios
-p1 <- ggplot(datos_ventas, aes(x = mes, y = ventas, fill = mes)) +
-  geom_col() +
-  scale_fill_brewer(type = "qual", palette = "Set3") +
-  labs(title = "❌ Problemático: Color sin función",
-       x = "Mes", y = "Ventas") +
-  theme_minimal() +
-  theme(legend.position = "none")
-
-# Gráfico mejorado
-p2 <- ggplot(datos_ventas, aes(x = mes, y = ventas)) +
-  geom_col(fill = "steelblue", alpha = 0.8) +
-  labs(title = "✅ Mejorado: Color funcional",
-       x = "Mes", y = "Ventas") +
-  theme_minimal()
-
-gridExtra::grid.arrange(p1, p2, ncol = 2)
-```
+&lt;img src="clase20_viz_1_files/figure-html/color-examples-1.png" width="576" /&gt;
 
 **Principio**: El color debe **comunicar**, no solo **decorar**
 
@@ -392,30 +364,7 @@ Elementos relacionados deben estar visualmente próximos
 
 # Escalas: Ejemplo de Distorsión
 
-```{r escalas-example, echo=FALSE, fig.height=3.5}
-datos_temp <- data.frame(
-  año = 2018:2022,
-  temperatura = c(14.2, 14.4, 14.1, 14.6, 14.3)
-)
-
-p1 <- ggplot(datos_temp, aes(x = año, y = temperatura)) +
-  geom_line(size = 1.2, color = "red") +
-  geom_point(size = 3, color = "red") +
-  scale_y_continuous(limits = c(14, 14.7)) +
-  labs(title = "❌ Escala engañosa: Variación exagerada",
-       x = "Año", y = "Temperatura promedio (°C)") +
-  theme_minimal()
-
-p2 <- ggplot(datos_temp, aes(x = año, y = temperatura)) +
-  geom_line(size = 1.2, color = "red") +
-  geom_point(size = 3, color = "red") +
-  scale_y_continuous(limits = c(0, 15)) +
-  labs(title = "✅ Escala apropiada: Contexto real",
-       x = "Año", y = "Temperatura promedio (°C)") +
-  theme_minimal()
-
-gridExtra::grid.arrange(p1, p2, ncol = 2)
-```
+&lt;img src="clase20_viz_1_files/figure-html/escalas-example-1.png" width="576" /&gt;
 
 **Mismo dato, diferente interpretación según la escala**
 
@@ -507,7 +456,7 @@ class: inverse, center, middle
 # Categorías de Problemas (cont.)
 
 ### **4. Elección incorrecta de gráfico**
-- Gráficos de torta con >7 categorías
+- Gráficos de torta con &gt;7 categorías
 - Barras 3D que distorsionan percepción
 - Dobles ejes Y que crean correlaciones falsas
 
@@ -594,7 +543,7 @@ Si necesitan **el número exacto**, probablemente necesiten una tabla
 - Cálculos posteriores requieren valores exactos
 - Diferencias pequeñas pero significativas
 
-#### **2. Pocas observaciones (< 5-7 puntos)**
+#### **2. Pocas observaciones (&lt; 5-7 puntos)**
 - El patrón visual no es evidente
 - Cada valor individual es importante
 - Espacio limitado para visualización
@@ -611,7 +560,7 @@ Si necesitan **el número exacto**, probablemente necesiten una tabla
 ### **Usar GRÁFICO cuando**:
 
 #### **1. Patrones y tendencias**
-- Series temporales con >10 puntos
+- Series temporales con &gt;10 puntos
 - Comparaciones de magnitud relativa
 - Relaciones entre variables
 
@@ -629,44 +578,52 @@ Si necesitan **el número exacto**, probablemente necesiten una tabla
 
 # Matriz de Decisión: Tabla vs Gráfico
 
-```{r decision-matrix, echo=FALSE}
-decision_criteria <- data.frame(
-  Criterio = c(
-    "Precisión de valores",
-    "Número de observaciones", 
-    "Número de variables por obs.",
-    "Tipo de audiencia",
-    "Medio de presentación",
-    "Objetivo principal",
-    "Frecuencia de consulta"
-  ),
-  Favorece_Tabla = c(
-    "Crítica", 
-    "< 7",
-    "> 3", 
-    "Técnica especializada",
-    "Documento escrito",
-    "Consulta/referencia",
-    "Regular/diaria"
-  ),
-  Favorece_Gráfico = c(
-    "Relativa suficiente",
-    "> 10", 
-    "1-2",
-    "General/ejecutiva", 
-    "Presentación oral",
-    "Mostrar patrón",
-    "Ocasional"
-  )
-)
-
-kable(decision_criteria, 
-      col.names = c("Criterio", "Favorece Tabla", "Favorece Gráfico"),
-      format = "html") %>%
-  kableExtra::kable_styling(bootstrap_options = c("striped", "hover")) %>%
-  kableExtra::column_spec(2, color = "darkblue") %>%
-  kableExtra::column_spec(3, color = "darkgreen")
-```
+&lt;table class="table table-striped table-hover" style="color: black; margin-left: auto; margin-right: auto;"&gt;
+ &lt;thead&gt;
+  &lt;tr&gt;
+   &lt;th style="text-align:left;"&gt; Criterio &lt;/th&gt;
+   &lt;th style="text-align:left;"&gt; Favorece Tabla &lt;/th&gt;
+   &lt;th style="text-align:left;"&gt; Favorece Gráfico &lt;/th&gt;
+  &lt;/tr&gt;
+ &lt;/thead&gt;
+&lt;tbody&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Precisión de valores &lt;/td&gt;
+   &lt;td style="text-align:left;color: darkblue !important;"&gt; Crítica &lt;/td&gt;
+   &lt;td style="text-align:left;color: darkgreen !important;"&gt; Relativa suficiente &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Número de observaciones &lt;/td&gt;
+   &lt;td style="text-align:left;color: darkblue !important;"&gt; &amp;lt; 7 &lt;/td&gt;
+   &lt;td style="text-align:left;color: darkgreen !important;"&gt; &amp;gt; 10 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Número de variables por obs. &lt;/td&gt;
+   &lt;td style="text-align:left;color: darkblue !important;"&gt; &amp;gt; 3 &lt;/td&gt;
+   &lt;td style="text-align:left;color: darkgreen !important;"&gt; 1-2 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Tipo de audiencia &lt;/td&gt;
+   &lt;td style="text-align:left;color: darkblue !important;"&gt; Técnica especializada &lt;/td&gt;
+   &lt;td style="text-align:left;color: darkgreen !important;"&gt; General/ejecutiva &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Medio de presentación &lt;/td&gt;
+   &lt;td style="text-align:left;color: darkblue !important;"&gt; Documento escrito &lt;/td&gt;
+   &lt;td style="text-align:left;color: darkgreen !important;"&gt; Presentación oral &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Objetivo principal &lt;/td&gt;
+   &lt;td style="text-align:left;color: darkblue !important;"&gt; Consulta/referencia &lt;/td&gt;
+   &lt;td style="text-align:left;color: darkgreen !important;"&gt; Mostrar patrón &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Frecuencia de consulta &lt;/td&gt;
+   &lt;td style="text-align:left;color: darkblue !important;"&gt; Regular/diaria &lt;/td&gt;
+   &lt;td style="text-align:left;color: darkgreen !important;"&gt; Ocasional &lt;/td&gt;
+  &lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
 
 ---
 
@@ -724,12 +681,7 @@ class: inverse, center, middle
 
 - Parte del ecosistema **tidyverse**
 
-```{r ggplot-intro, fig.height=4, fig.width=6}
-ggplot(mpg, aes(x = displ, y = hwy, color = class)) +
-  geom_point(size = 3) +
-  theme_minimal() +
-  labs(title = "Ejemplo de un gráfico con ggplot2")
-```
+&lt;img src="clase20_viz_1_files/figure-html/ggplot-intro-1.png" width="432" /&gt;
 
 ---
 
@@ -752,9 +704,10 @@ Un gráfico es una combinación de capas independientes:
 
 ### Los 3 componentes básicos:
 
-```{r eval=FALSE, echo=TRUE}
-ggplot(data = <DATOS>) +
-  <GEOM_FUNCTION>(mapping = aes(<MAPEOS>))
+
+``` r
+ggplot(data = &lt;DATOS&gt;) +
+  &lt;GEOM_FUNCTION&gt;(mapping = aes(&lt;MAPEOS&gt;))
 ```
 
 1. **Datos**: El dataset que queremos visualizar
@@ -773,9 +726,19 @@ Los datos deben estar en formato **tidy** (ordenado):
 - Cada observación es una fila
 - Cada valor es una celda
 
-```{r echo=TRUE}
+
+``` r
 # Usando el dataset incorporado 'mpg'
 head(mpg, 3)
+```
+
+```
+## # A tibble: 3 × 11
+##   manufacturer model displ  year   cyl trans      drv     cty   hwy fl    class  
+##   &lt;chr&gt;        &lt;chr&gt; &lt;dbl&gt; &lt;int&gt; &lt;int&gt; &lt;chr&gt;      &lt;chr&gt; &lt;int&gt; &lt;int&gt; &lt;chr&gt; &lt;chr&gt;  
+## 1 audi         a4      1.8  1999     4 auto(l5)   f        18    29 p     compact
+## 2 audi         a4      1.8  1999     4 manual(m5) f        21    29 p     compact
+## 3 audi         a4      2    2008     4 manual(m6) f        20    31 p     compact
 ```
 
 ---
@@ -791,7 +754,8 @@ Las estéticas mapean variables a propiedades visuales:
 - **Transparencia**: `alpha`
 - **Tipo de línea**: `linetype`
 
-```{r eval=FALSE, echo=TRUE}
+
+``` r
 aes(x = displ, y = hwy, color = class, size = cyl)
 ```
 
@@ -811,3 +775,140 @@ Las geometrías definen el tipo de gráfico:
 | `geom_smooth()` | Línea de tendencia |
 
 ---
+    </textarea>
+<style data-target="print-only">@media screen {.remark-slide-container{display:block;}.remark-slide-scaler{box-shadow:none;}}</style>
+<script src="https://remarkjs.com/downloads/remark-latest.min.js"></script>
+<script>var slideshow = remark.create({
+  "highlightStyle": "github",
+  "highlightLines": true,
+  "countIncrementalSlides": false,
+  "ratio": "16:9"
+});
+if (window.HTMLWidgets) slideshow.on('afterShowSlide', function (slide) {
+  window.dispatchEvent(new Event('resize'));
+});
+(function(d) {
+  var s = d.createElement("style"), r = d.querySelector(".remark-slide-scaler");
+  if (!r) return;
+  s.type = "text/css"; s.innerHTML = "@page {size: " + r.style.width + " " + r.style.height +"; }";
+  d.head.appendChild(s);
+})(document);
+
+(function(d) {
+  var el = d.getElementsByClassName("remark-slides-area");
+  if (!el) return;
+  var slide, slides = slideshow.getSlides(), els = el[0].children;
+  for (var i = 1; i < slides.length; i++) {
+    slide = slides[i];
+    if (slide.properties.continued === "true" || slide.properties.count === "false") {
+      els[i - 1].className += ' has-continuation';
+    }
+  }
+  var s = d.createElement("style");
+  s.type = "text/css"; s.innerHTML = "@media print { .has-continuation { display: none; } }";
+  d.head.appendChild(s);
+})(document);
+// delete the temporary CSS (for displaying all slides initially) when the user
+// starts to view slides
+(function() {
+  var deleted = false;
+  slideshow.on('beforeShowSlide', function(slide) {
+    if (deleted) return;
+    var sheets = document.styleSheets, node;
+    for (var i = 0; i < sheets.length; i++) {
+      node = sheets[i].ownerNode;
+      if (node.dataset["target"] !== "print-only") continue;
+      node.parentNode.removeChild(node);
+    }
+    deleted = true;
+  });
+})();
+// add `data-at-shortcutkeys` attribute to <body> to resolve conflicts with JAWS
+// screen reader (see PR #262)
+(function(d) {
+  let res = {};
+  d.querySelectorAll('.remark-help-content table tr').forEach(tr => {
+    const t = tr.querySelector('td:nth-child(2)').innerText;
+    tr.querySelectorAll('td:first-child .key').forEach(key => {
+      const k = key.innerText;
+      if (/^[a-z]$/.test(k)) res[k] = t;  // must be a single letter (key)
+    });
+  });
+  d.body.setAttribute('data-at-shortcutkeys', JSON.stringify(res));
+})(document);
+(function() {
+  "use strict"
+  // Replace <script> tags in slides area to make them executable
+  var scripts = document.querySelectorAll(
+    '.remark-slides-area .remark-slide-container script'
+  );
+  if (!scripts.length) return;
+  for (var i = 0; i < scripts.length; i++) {
+    var s = document.createElement('script');
+    var code = document.createTextNode(scripts[i].textContent);
+    s.appendChild(code);
+    var scriptAttrs = scripts[i].attributes;
+    for (var j = 0; j < scriptAttrs.length; j++) {
+      s.setAttribute(scriptAttrs[j].name, scriptAttrs[j].value);
+    }
+    scripts[i].parentElement.replaceChild(s, scripts[i]);
+  }
+})();
+(function() {
+  var links = document.getElementsByTagName('a');
+  for (var i = 0; i < links.length; i++) {
+    if (/^(https?:)?\/\//.test(links[i].getAttribute('href'))) {
+      links[i].target = '_blank';
+    }
+  }
+})();
+// adds .remark-code-has-line-highlighted class to <pre> parent elements
+// of code chunks containing highlighted lines with class .remark-code-line-highlighted
+(function(d) {
+  const hlines = d.querySelectorAll('.remark-code-line-highlighted');
+  const preParents = [];
+  const findPreParent = function(line, p = 0) {
+    if (p > 1) return null; // traverse up no further than grandparent
+    const el = line.parentElement;
+    return el.tagName === "PRE" ? el : findPreParent(el, ++p);
+  };
+
+  for (let line of hlines) {
+    let pre = findPreParent(line);
+    if (pre && !preParents.includes(pre)) preParents.push(pre);
+  }
+  preParents.forEach(p => p.classList.add("remark-code-has-line-highlighted"));
+})(document);</script>
+
+<script>
+slideshow._releaseMath = function(el) {
+  var i, text, code, codes = el.getElementsByTagName('code');
+  for (i = 0; i < codes.length;) {
+    code = codes[i];
+    if (code.parentNode.tagName !== 'PRE' && code.childElementCount === 0) {
+      text = code.textContent;
+      if (/^\\\((.|\s)+\\\)$/.test(text) || /^\\\[(.|\s)+\\\]$/.test(text) ||
+          /^\$\$(.|\s)+\$\$$/.test(text) ||
+          /^\\begin\{([^}]+)\}(.|\s)+\\end\{[^}]+\}$/.test(text)) {
+        code.outerHTML = code.innerHTML;  // remove <code></code>
+        continue;
+      }
+    }
+    i++;
+  }
+};
+slideshow._releaseMath(document);
+</script>
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+(function () {
+  var script = document.createElement('script');
+  script.type = 'text/javascript';
+  script.src  = 'https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-MML-AM_CHTML';
+  if (location.protocol !== 'file:' && /^https?:/.test(script.src))
+    script.src  = script.src.replace(/^https?:/, '');
+  document.getElementsByTagName('head')[0].appendChild(script);
+})();
+</script>
+  </body>
+</html>
