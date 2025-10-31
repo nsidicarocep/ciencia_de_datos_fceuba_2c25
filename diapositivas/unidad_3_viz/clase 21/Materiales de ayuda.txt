@@ -1,0 +1,9 @@
+Páginas que pueden utilizar para ver cómo visualizar un dato: 
+
+1) Data to Viz: https://www.data-to-viz.com/ 
+2) R Graph Gallery: https://r-graph-gallery.com/ 
+3) Chart Chooser: indica pros y contras de cada gráfico - https://www.highcharts.com/blog/chartchooser/ 
+4) Infografía del Financial Times: https://raw.githubusercontent.com/Financial-Times/chart-doctor/main/visual-vocabulary/poster.png 
+5) Varias infografías que ayudan a pensar gráficos: https://coolinfographics.com/dataviz-guides 
+6) Chartopedia: https://www.anychart.com/chartopedia/usage-type/ 
+7) Infografía sobre datos cuantitativos: https://stephanieevergreen.com/wp-content/uploads/2022/06/Evergreen-Data-Quantitative-Chart-Chooser.pdf 
