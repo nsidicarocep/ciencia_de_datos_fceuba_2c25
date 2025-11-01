@@ -1,7 +1,10 @@
 Páginas que pueden utilizar para ver cómo visualizar un dato: 
 
+Para R: 
 1) Data to Viz: https://www.data-to-viz.com/ 
 2) R Graph Gallery: https://r-graph-gallery.com/ 
+
+General: 
 3) Chart Chooser: indica pros y contras de cada gráfico - https://www.highcharts.com/blog/chartchooser/ 
 4) Infografía del Financial Times: https://raw.githubusercontent.com/Financial-Times/chart-doctor/main/visual-vocabulary/poster.png 
 5) Varias infografías que ayudan a pensar gráficos: https://coolinfographics.com/dataviz-guides 

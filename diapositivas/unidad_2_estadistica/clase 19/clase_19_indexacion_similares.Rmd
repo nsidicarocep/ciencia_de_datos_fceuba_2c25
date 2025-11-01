@@ -1,0 +1,990 @@
+---
+title: "Análisis Económico con Tidyverse"
+subtitle: "Variaciones, Indexación y Deflactación de Variables"
+author: "Análisis con R y Tidyverse"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    toc_depth: 3
+    theme: flatly
+    highlight: tango
+    code_folding: show
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE,
+  warning = FALSE,
+  message = FALSE,
+  fig.width = 10,
+  fig.height = 6
+)
+```
+
+# Introducción
+
+Este notebook explora cuatro conceptos fundamentales en el análisis económico:
+
+1. **Diferencias entre variables y variaciones porcentuales** (interanual, intermensual, etc.)
+2. **Indexación de variables** (números índice)
+3. **Deflactación de variables** y cambios de base del deflactor
+4. **Tasa de Crecimiento Anual Acumulada (TCAA/CAGR)**
+
+Utilizaremos el ecosistema **Tidyverse** para todas las transformaciones y visualizaciones.
+
+```{r librerías}
+library(tidyverse)
+library(lubridate)
+library(scales)
+library(knitr)
+
+# Configurar tema de gráficos
+theme_set(theme_minimal(base_size = 12))
+```
+
+---
+
+# 1. Diferencias y Variaciones Porcentuales
+
+## 1.1 Conceptos Teóricos
+
+Las **diferencias absolutas** miden el cambio en unidades originales de la variable:
+
+$$\Delta X_t = X_t - X_{t-1}$$
+
+Las **variaciones porcentuales** miden el cambio relativo:
+
+$$\text{Var}\% = \frac{X_t - X_{t-1}}{X_{t-1}} \times 100$$
+
+### Tipos de variaciones más comunes:
+
+- **Intermensual**: comparación con el mes anterior
+- **Interanual**: comparación con el mismo mes del año anterior
+- **Acumulada**: variación desde el inicio del año hasta el periodo actual
+- **Promedio móvil**: suaviza fluctuaciones estacionales
+
+## 1.2 Datos de Ejemplo
+
+Vamos a crear un dataset simulado de ventas mensuales con componente estacional:
+
+```{r datos-ventas}
+set.seed(123)
+
+# Crear serie temporal de 3 años
+datos_ventas <- tibble(
+  fecha = seq.Date(from = as.Date("2022-01-01"), 
+                   to = as.Date("2024-12-01"), 
+                   by = "month"),
+  año = year(fecha),
+  mes = month(fecha),
+  trimestre = quarter(fecha)
+) %>%
+  mutate(
+    # Tendencia creciente + estacionalidad + ruido
+    ventas_nominales = 100000 + 
+                      (row_number() * 500) + # tendencia
+                      sin(mes * pi/6) * 8000 + # estacionalidad
+                      rnorm(n(), 0, 2000) # ruido
+  ) %>%
+  mutate(ventas_nominales = round(ventas_nominales, 0))
+
+# Visualizar los primeros registros
+head(datos_ventas, 12) %>% kable()
+```
+
+## 1.3 Cálculo de Variaciones con Tidyverse
+
+```{r variaciones}
+datos_ventas <- datos_ventas %>%
+  arrange(fecha) %>%
+  mutate(
+    # Diferencia absoluta intermensual
+    dif_intermensual = ventas_nominales - lag(ventas_nominales, 1),
+    
+    # Variación porcentual intermensual
+    var_intermensual = (ventas_nominales / lag(ventas_nominales, 1) - 1) * 100,
+    
+    # Variación porcentual interanual (12 meses)
+    var_interanual = (ventas_nominales / lag(ventas_nominales, 12) - 1) * 100,
+    
+    # Acumulada anual (vs mismo periodo año anterior)
+    ventas_acum_año = cumsum(ventas_nominales * (año == max(año))),
+    ventas_acum_año_ant = lag(ventas_acum_año, 12),
+    var_acumulada = (ventas_acum_año / ventas_acum_año_ant - 1) * 100,
+    
+    # Promedio móvil de 3 meses
+    promedio_movil_3m = slider::slide_dbl(ventas_nominales, mean, 
+                                          .before = 2, .after = 0, 
+                                          .complete = TRUE)
+  )
+
+# Mostrar ejemplo de cálculos
+datos_ventas %>%
+  filter(fecha >= "2023-01-01", fecha <= "2023-06-01") %>%
+  select(fecha, ventas_nominales, dif_intermensual, 
+         var_intermensual, var_interanual) %>%
+  kable(digits = 2)
+```
+
+## 1.4 Visualización de Variaciones
+
+```{r grafico-variaciones, fig.height=8}
+# Gráfico de la serie original
+p1 <- datos_ventas %>%
+  ggplot(aes(x = fecha, y = ventas_nominales)) +
+  geom_line(color = "steelblue", size = 1) +
+  geom_point(size = 2, alpha = 0.5) +
+  scale_y_continuous(labels = dollar_format(prefix = "$", big.mark = ",")) +
+  labs(title = "Serie Original: Ventas Mensuales",
+       x = NULL, y = "Ventas") +
+  theme(plot.title = element_text(face = "bold"))
+
+# Gráfico de variación intermensual
+p2 <- datos_ventas %>%
+  filter(!is.na(var_intermensual)) %>%
+  ggplot(aes(x = fecha, y = var_intermensual)) +
+  geom_line(color = "darkorange", size = 1) +
+  geom_point(size = 2, alpha = 0.5) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
+  scale_y_continuous(labels = percent_format(scale = 1)) +
+  labs(title = "Variación Intermensual (%)",
+       x = NULL, y = "Variación %") +
+  theme(plot.title = element_text(face = "bold"))
+
+# Gráfico de variación interanual
+p3 <- datos_ventas %>%
+  filter(!is.na(var_interanual)) %>%
+  ggplot(aes(x = fecha, y = var_interanual)) +
+  geom_line(color = "darkgreen", size = 1) +
+  geom_point(size = 2, alpha = 0.5) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
+  scale_y_continuous(labels = percent_format(scale = 1)) +
+  labs(title = "Variación Interanual (%)",
+       x = NULL, y = "Variación %") +
+  theme(plot.title = element_text(face = "bold"))
+
+# Combinar gráficos
+library(patchwork)
+p1 / p2 / p3
+```
+
+## 1.5 Comparación: Diferencia Absoluta vs Relativa
+
+```{r comparacion}
+datos_ventas %>%
+  filter(año >= 2023) %>%
+  ggplot(aes(x = fecha)) +
+  geom_line(aes(y = dif_intermensual / 1000, color = "Diferencia Absoluta (miles)"), 
+            size = 1) +
+  geom_line(aes(y = var_intermensual * 100, color = "Variación % (x100)"), 
+            size = 1) +
+  scale_color_manual(values = c("steelblue", "coral")) +
+  labs(title = "Comparación: Diferencias Absolutas vs Variaciones Relativas",
+       subtitle = "Las variaciones % son más apropiadas para comparar cambios",
+       x = NULL, y = "Valor escalado",
+       color = "Tipo de cambio") +
+  theme(legend.position = "bottom")
+```
+
+**Interpretación**: Las variaciones porcentuales son más útiles para:
+
+- Comparar cambios en variables de diferentes magnitudes
+- Interpretar la importancia relativa del cambio
+- Estandarizar comparaciones entre diferentes periodos
+
+---
+
+# 2. Indexación de Variables
+
+## 2.1 Conceptos de Números Índice
+
+Un **número índice** transforma una serie temporal a una base de referencia igual a 100:
+
+$$I_t = \frac{X_t}{X_{base}} \times 100$$
+
+**Ventajas de la indexación:**
+
+- Facilita comparaciones entre series de diferentes unidades
+- Muestra claramente la evolución relativa
+- Elimina el efecto de la magnitud inicial
+
+## 2.2 Crear Índices con Base Diferente
+
+```{r indexacion}
+# Definir diferentes bases
+fecha_base_2022 <- as.Date("2022-01-01")
+fecha_base_2023 <- as.Date("2023-01-01")
+
+datos_ventas <- datos_ventas %>%
+  mutate(
+    # Índice base 2022 = 100
+    indice_base_2022 = (ventas_nominales / 
+                         ventas_nominales[fecha == fecha_base_2022]) * 100,
+    
+    # Índice base 2023 = 100
+    indice_base_2023 = (ventas_nominales / 
+                         ventas_nominales[fecha == fecha_base_2023]) * 100,
+    
+    # Índice promedio año 2022 = 100
+    promedio_2022 = mean(ventas_nominales[año == 2022]),
+    indice_promedio_2022 = (ventas_nominales / first(promedio_2022)) * 100
+  )
+
+# Visualizar índices
+datos_ventas %>%
+  filter(fecha <= "2024-06-01") %>%
+  select(fecha, ventas_nominales, indice_base_2022, 
+         indice_base_2023, indice_promedio_2022) %>%
+  tail(12) %>%
+  kable(digits = 2)
+```
+
+## 2.3 Comparación Visual de Índices
+
+```{r grafico-indices}
+datos_ventas %>%
+  select(fecha, indice_base_2022, indice_base_2023) %>%
+  pivot_longer(cols = starts_with("indice"), 
+               names_to = "tipo_indice", 
+               values_to = "valor") %>%
+  mutate(tipo_indice = case_when(
+    tipo_indice == "indice_base_2022" ~ "Base Enero 2022 = 100",
+    tipo_indice == "indice_base_2023" ~ "Base Enero 2023 = 100"
+  )) %>%
+  ggplot(aes(x = fecha, y = valor, color = tipo_indice)) +
+  geom_line(size = 1.2) +
+  geom_hline(yintercept = 100, linetype = "dashed", alpha = 0.5) +
+  scale_color_brewer(palette = "Set1") +
+  labs(title = "Números Índice con Diferentes Bases",
+       subtitle = "La elección de la base afecta la interpretación",
+       x = NULL, y = "Índice",
+       color = "Base") +
+  theme(legend.position = "bottom")
+```
+
+## 2.4 Cambio de Base
+
+Cuando necesitamos cambiar la base de un índice existente:
+
+$$I_{t}^{nueva} = \frac{I_{t}^{vieja}}{I_{base\_nueva}^{vieja}} \times 100$$
+
+```{r cambio-base}
+# Supongamos que tenemos un índice con base 2022
+# y queremos cambiarlo a base 2023
+
+datos_ventas <- datos_ventas %>%
+  mutate(
+    # Valor del índice antiguo en la nueva fecha base
+    valor_indice_en_nueva_base = indice_base_2022[fecha == fecha_base_2023],
+    
+    # Índice con nueva base (calculado desde índice viejo)
+    indice_cambiado = (indice_base_2022 / first(valor_indice_en_nueva_base)) * 100
+  )
+
+# Verificar que el cambio de base es correcto
+datos_ventas %>%
+  filter(fecha >= "2023-01-01", fecha <= "2023-12-01") %>%
+  select(fecha, indice_base_2023, indice_cambiado) %>%
+  head(6) %>%
+  kable(digits = 2, 
+        caption = "Comparación: Índice directo vs Índice con base cambiada")
+```
+
+---
+
+# 3. Deflactación de Variables
+
+## 3.1 Conceptos Teóricos
+
+**Deflactar** significa expresar valores nominales en términos reales, eliminando el efecto de la inflación:
+
+$$X_{real,t} = \frac{X_{nominal,t}}{IPC_t} \times 100$$
+
+Donde $IPC_t$ es el Índice de Precios al Consumidor en el periodo $t$.
+
+**Valores nominales vs reales:**
+
+- **Nominales**: expresados en pesos corrientes (del momento)
+- **Reales**: expresados en pesos constantes (de un periodo base)
+
+## 3.2 Crear un IPC Simulado
+
+```{r ipc}
+# Crear un IPC con inflación variable
+set.seed(456)
+
+ipc_data <- tibble(
+  fecha = seq.Date(from = as.Date("2022-01-01"), 
+                   to = as.Date("2024-12-01"), 
+                   by = "month")
+) %>%
+  mutate(
+    # Simular inflación mensual variable
+    inflacion_mensual = case_when(
+      fecha < "2023-01-01" ~ rnorm(n(), 0.03, 0.01), # ~3% mensual
+      fecha < "2024-01-01" ~ rnorm(n(), 0.05, 0.015), # ~5% mensual
+      TRUE ~ rnorm(n(), 0.025, 0.01) # ~2.5% mensual
+    ),
+    inflacion_mensual = pmax(inflacion_mensual, 0) # evitar negativa
+  ) %>%
+  mutate(
+    # Construir IPC acumulativo (base enero 2022 = 100)
+    ipc = 100 * cumprod(1 + inflacion_mensual)
+  )
+
+# Unir con datos de ventas
+datos_completos <- datos_ventas %>%
+  left_join(ipc_data, by = "fecha")
+
+# Visualizar IPC
+ipc_data %>%
+  ggplot(aes(x = fecha, y = ipc)) +
+  geom_line(color = "darkred", size = 1.2) +
+  geom_area(alpha = 0.2, fill = "darkred") +
+  labs(title = "Índice de Precios al Consumidor (IPC)",
+       subtitle = "Base Enero 2022 = 100",
+       x = NULL, y = "IPC") +
+  scale_y_continuous(labels = comma)
+```
+
+## 3.3 Deflactar Ventas Nominales
+
+```{r deflactar}
+datos_completos <- datos_completos %>%
+  mutate(
+    # Deflactar ventas (base enero 2022)
+    ventas_reales_base_2022 = (ventas_nominales / ipc) * 100,
+    
+    # Calcular variación interanual real
+    var_interanual_real = (ventas_reales_base_2022 / 
+                            lag(ventas_reales_base_2022, 12) - 1) * 100
+  )
+
+# Comparar valores nominales y reales
+datos_completos %>%
+  filter(fecha >= "2023-01-01", fecha <= "2023-12-01") %>%
+  select(fecha, ventas_nominales, ipc, ventas_reales_base_2022) %>%
+  kable(digits = 2, format.args = list(big.mark = ","))
+```
+
+## 3.4 Comparación Visual: Nominal vs Real
+
+```{r grafico-nominal-real}
+datos_completos %>%
+  select(fecha, ventas_nominales, ventas_reales_base_2022) %>%
+  pivot_longer(cols = c(ventas_nominales, ventas_reales_base_2022),
+               names_to = "tipo",
+               values_to = "valor") %>%
+  mutate(tipo = case_when(
+    tipo == "ventas_nominales" ~ "Ventas Nominales",
+    tipo == "ventas_reales_base_2022" ~ "Ventas Reales (base 2022)"
+  )) %>%
+  ggplot(aes(x = fecha, y = valor, color = tipo)) +
+  geom_line(size = 1.2) +
+  scale_y_continuous(labels = dollar_format(prefix = "$", big.mark = ",")) +
+  scale_color_manual(values = c("steelblue", "forestgreen")) +
+  labs(title = "Ventas Nominales vs Ventas Reales",
+       subtitle = "La deflactación muestra el crecimiento 'verdadero' sin inflación",
+       x = NULL, y = "Ventas",
+       color = "Tipo de valor") +
+  theme(legend.position = "bottom")
+```
+
+## 3.5 Cambio de Base del Deflactor
+
+A veces necesitamos cambiar la base del deflactor (por ejemplo, de base 2022 a base 2023):
+
+```{r cambio-base-deflactor}
+# Calcular IPC con nueva base (2023)
+fecha_nueva_base <- as.Date("2023-01-01")
+
+datos_completos <- datos_completos %>%
+  mutate(
+    # IPC base 2023 = 100
+    ipc_base_2023 = (ipc / ipc[fecha == fecha_nueva_base]) * 100,
+    
+    # Ventas reales con nueva base
+    ventas_reales_base_2023 = (ventas_nominales / ipc_base_2023) * 100
+  )
+
+# Comparar deflactación con diferentes bases
+datos_completos %>%
+  filter(fecha >= "2023-01-01", fecha <= "2023-06-01") %>%
+  select(fecha, ventas_nominales, 
+         ventas_reales_base_2022, 
+         ventas_reales_base_2023) %>%
+  kable(digits = 2, format.args = list(big.mark = ","))
+```
+
+**Nota importante**: El cambio de base del deflactor **no afecta las variaciones porcentuales**:
+
+```{r verificar-variaciones}
+datos_completos %>%
+  mutate(
+    var_real_base_2022 = (ventas_reales_base_2022 / 
+                           lag(ventas_reales_base_2022, 12) - 1) * 100,
+    var_real_base_2023 = (ventas_reales_base_2023 / 
+                           lag(ventas_reales_base_2023, 12) - 1) * 100
+  ) %>%
+  filter(!is.na(var_real_base_2022)) %>%
+  select(fecha, var_real_base_2022, var_real_base_2023) %>%
+  tail(12) %>%
+  kable(digits = 2,
+        caption = "Las variaciones % son idénticas independientemente de la base")
+```
+
+## 3.6 Análisis Integrado: Nominal, Real e Inflación
+
+```{r analisis-integrado, fig.height=10}
+# Preparar datos para visualización
+datos_plot <- datos_completos %>%
+  select(fecha, ventas_nominales, ventas_reales_base_2022, 
+         var_interanual, var_interanual_real, ipc) %>%
+  filter(!is.na(var_interanual))
+
+# Gráfico 1: Ventas nominales y reales
+g1 <- ggplot(datos_plot) +
+  geom_line(aes(x = fecha, y = ventas_nominales, color = "Nominal"), 
+            size = 1) +
+  geom_line(aes(x = fecha, y = ventas_reales_base_2022, color = "Real"), 
+            size = 1) +
+  scale_y_continuous(labels = dollar_format(prefix = "$", big.mark = ",")) +
+  scale_color_manual(values = c("Nominal" = "steelblue", 
+                                 "Real" = "forestgreen")) +
+  labs(title = "A) Ventas Nominales vs Reales",
+       x = NULL, y = "Ventas", color = NULL) +
+  theme(legend.position = "bottom")
+
+# Gráfico 2: IPC
+g2 <- ggplot(datos_plot, aes(x = fecha, y = ipc)) +
+  geom_line(color = "darkred", size = 1) +
+  geom_area(alpha = 0.2, fill = "darkred") +
+  labs(title = "B) Índice de Precios al Consumidor",
+       x = NULL, y = "IPC (base 2022=100)") +
+  scale_y_continuous(labels = comma)
+
+# Gráfico 3: Variaciones interanuales
+g3 <- datos_plot %>%
+  select(fecha, var_interanual, var_interanual_real) %>%
+  pivot_longer(cols = c(var_interanual, var_interanual_real),
+               names_to = "tipo",
+               values_to = "valor") %>%
+  mutate(tipo = case_when(
+    tipo == "var_interanual" ~ "Variación Nominal",
+    tipo == "var_interanual_real" ~ "Variación Real"
+  )) %>%
+  ggplot(aes(x = fecha, y = valor, color = tipo)) +
+  geom_line(size = 1) +
+  geom_hline(yintercept = 0, linetype = "dashed", alpha = 0.5) +
+  scale_y_continuous(labels = percent_format(scale = 1)) +
+  scale_color_manual(values = c("Variación Nominal" = "steelblue",
+                                 "Variación Real" = "forestgreen")) +
+  labs(title = "C) Variación Interanual: Nominal vs Real",
+       x = NULL, y = "Variación % i.a.", color = NULL) +
+  theme(legend.position = "bottom")
+
+# Combinar gráficos
+g1 / g2 / g3
+```
+
+---
+
+# 4. Tasa de Crecimiento Anual Acumulada (TCAA)
+
+## 4.1 Conceptos Teóricos
+
+La **Tasa de Crecimiento Anual Acumulada** (TCAA), también conocida como **CAGR** (Compound Annual Growth Rate), mide el crecimiento promedio anual de una variable durante un período de tiempo, asumiendo un crecimiento constante.
+
+$$TCAA = \left(\frac{Valor_{final}}{Valor_{inicial}}\right)^{\frac{1}{n}} - 1$$
+
+Donde $n$ es el número de años entre el valor inicial y final.
+
+**Características importantes:**
+
+- Suaviza las fluctuaciones año a año
+- Útil para comparar tasas de crecimiento entre diferentes períodos
+- Asume crecimiento exponencial constante (lo cual raramente ocurre en la realidad)
+- Es una medida de tendencia, no de volatilidad
+
+**Diferencia con otras medidas:**
+
+- **Crecimiento promedio simple**: $(media(tasas\ anuales))$ - puede ser engañoso
+- **TCAA**: considera el efecto compuesto - más precisa para períodos largos
+
+## 4.2 Cálculo de TCAA con Tidyverse
+
+```{r tcaa-calculo}
+# Función para calcular TCAA
+calcular_tcaa <- function(valor_inicial, valor_final, años) {
+  ((valor_final / valor_inicial)^(1/años) - 1) * 100
+}
+
+# Calcular TCAA para diferentes períodos de las ventas
+tcaa_ventas <- datos_completos %>%
+  summarise(
+    # TCAA 2022-2024 (ventas nominales)
+    fecha_inicial = min(fecha),
+    fecha_final = max(fecha),
+    años = as.numeric(difftime(fecha_final, fecha_inicial, units = "days")) / 365.25,
+    
+    ventas_inicial = first(ventas_nominales),
+    ventas_final = last(ventas_nominales),
+    
+    TCAA_nominal = calcular_tcaa(ventas_inicial, ventas_final, años),
+    
+    # TCAA de ventas reales
+    ventas_real_inicial = first(ventas_reales_base_2022),
+    ventas_real_final = last(ventas_reales_base_2022),
+    
+    TCAA_real = calcular_tcaa(ventas_real_inicial, ventas_real_final, años),
+    
+    # TCAA del IPC (inflación acumulada anualizada)
+    ipc_inicial = first(ipc),
+    ipc_final = last(ipc),
+    
+    TCAA_inflacion = calcular_tcaa(ipc_inicial, ipc_final, años)
+  )
+
+tcaa_ventas %>%
+  select(años, TCAA_nominal, TCAA_real, TCAA_inflacion) %>%
+  kable(digits = 2, 
+        caption = "Tasa de Crecimiento Anual Acumulada (período completo)",
+        col.names = c("Años", "TCAA Ventas Nominales (%)", 
+                      "TCAA Ventas Reales (%)", "TCAA Inflación (%)"))
+```
+
+## 4.3 TCAA por Períodos Móviles
+
+Es útil calcular la TCAA para ventanas móviles de tiempo (por ejemplo, TCAA de los últimos 2 años):
+
+```{r tcaa-movil}
+# Calcular TCAA móvil de 2 años
+datos_completos <- datos_completos %>%
+  arrange(fecha) %>%
+  mutate(
+    # TCAA de 2 años (24 meses)
+    ventas_hace_2años = lag(ventas_nominales, 24),
+    tcaa_2años_nominal = calcular_tcaa(ventas_hace_2años, ventas_nominales, 2),
+    
+    # TCAA de 2 años (real)
+    ventas_real_hace_2años = lag(ventas_reales_base_2022, 24),
+    tcaa_2años_real = calcular_tcaa(ventas_real_hace_2años, ventas_reales_base_2022, 2),
+    
+    # TCAA de 1 año (equivalente a variación interanual)
+    tcaa_1año = calcular_tcaa(lag(ventas_nominales, 12), ventas_nominales, 1)
+  )
+
+# Visualizar TCAA móvil
+datos_completos %>%
+  filter(!is.na(tcaa_2años_nominal)) %>%
+  select(fecha, tcaa_2años_nominal, tcaa_2años_real) %>%
+  tail(12) %>%
+  kable(digits = 2,
+        col.names = c("Fecha", "TCAA 2 años Nominal (%)", "TCAA 2 años Real (%)"))
+```
+
+## 4.4 Comparación: TCAA vs Variación Interanual
+
+```{r comparacion-tcaa-ia, fig.height=7}
+# Gráfico 1: TCAA móvil vs variación interanual
+p1 <- datos_completos %>%
+  filter(!is.na(tcaa_2años_nominal), !is.na(var_interanual)) %>%
+  select(fecha, tcaa_2años_nominal, var_interanual) %>%
+  pivot_longer(cols = -fecha, names_to = "medida", values_to = "valor") %>%
+  mutate(medida = case_when(
+    medida == "tcaa_2años_nominal" ~ "TCAA 2 años",
+    medida == "var_interanual" ~ "Variación Interanual"
+  )) %>%
+  ggplot(aes(x = fecha, y = valor, color = medida)) +
+  geom_line(size = 1.2) +
+  scale_y_continuous(labels = percent_format(scale = 1)) +
+  scale_color_manual(values = c("TCAA 2 años" = "purple", 
+                                 "Variación Interanual" = "darkorange")) +
+  labs(title = "Comparación: TCAA vs Variación Interanual",
+       subtitle = "La TCAA suaviza las fluctuaciones de corto plazo",
+       x = NULL, y = "Tasa de crecimiento (%)",
+       color = "Medida") +
+  theme(legend.position = "bottom")
+
+# Gráfico 2: TCAA nominal vs real
+p2 <- datos_completos %>%
+  filter(!is.na(tcaa_2años_nominal)) %>%
+  select(fecha, tcaa_2años_nominal, tcaa_2años_real) %>%
+  pivot_longer(cols = -fecha, names_to = "tipo", values_to = "valor") %>%
+  mutate(tipo = case_when(
+    tipo == "tcaa_2años_nominal" ~ "TCAA Nominal",
+    tipo == "tcaa_2años_real" ~ "TCAA Real"
+  )) %>%
+  ggplot(aes(x = fecha, y = valor, color = tipo)) +
+  geom_line(size = 1.2) +
+  scale_y_continuous(labels = percent_format(scale = 1)) +
+  scale_color_manual(values = c("TCAA Nominal" = "steelblue",
+                                 "TCAA Real" = "forestgreen")) +
+  labs(title = "TCAA Nominal vs Real (ventana de 2 años)",
+       subtitle = "La diferencia refleja el impacto de la inflación",
+       x = NULL, y = "TCAA (%)",
+       color = NULL) +
+  theme(legend.position = "bottom")
+
+p1 / p2
+```
+
+## 4.5 TCAA por Subperíodos
+
+Analizar la TCAA por diferentes subperíodos permite identificar cambios en la dinámica de crecimiento:
+
+```{r tcaa-subperiodos}
+# Definir períodos de análisis
+periodos <- datos_completos %>%
+  mutate(
+    periodo = case_when(
+      fecha < "2023-01-01" ~ "2022",
+      fecha < "2024-01-01" ~ "2023",
+      TRUE ~ "2024"
+    )
+  ) %>%
+  filter(periodo %in% c("2022", "2023")) %>%
+  group_by(periodo) %>%
+  summarise(
+    fecha_inicial = min(fecha),
+    fecha_final = max(fecha),
+    ventas_inicial = first(ventas_nominales),
+    ventas_final = last(ventas_nominales),
+    ventas_real_inicial = first(ventas_reales_base_2022),
+    ventas_real_final = last(ventas_reales_base_2022),
+    meses = n()
+  ) %>%
+  mutate(
+    años = meses / 12,
+    TCAA_nominal = calcular_tcaa(ventas_inicial, ventas_final, años),
+    TCAA_real = calcular_tcaa(ventas_real_inicial, ventas_real_final, años)
+  )
+
+periodos %>%
+  select(periodo, TCAA_nominal, TCAA_real) %>%
+  kable(digits = 2,
+        caption = "TCAA por Año",
+        col.names = c("Período", "TCAA Nominal (%)", "TCAA Real (%)"))
+```
+
+## 4.6 Proyección usando TCAA
+
+La TCAA puede usarse para proyectar valores futuros:
+
+$$Valor_{futuro} = Valor_{actual} \times (1 + TCAA)^{años}$$
+
+```{r proyeccion-tcaa}
+# Proyectar ventas para los próximos 12 meses usando TCAA histórica
+ultima_fecha <- max(datos_completos$fecha)
+ultimo_valor <- last(datos_completos$ventas_nominales)
+
+# Usar TCAA de los últimos 2 años
+tcaa_proyeccion <- last(datos_completos$tcaa_2años_nominal[!is.na(datos_completos$tcaa_2años_nominal)])
+
+proyeccion <- tibble(
+  fecha = seq.Date(from = ultima_fecha + months(1), 
+                   to = ultima_fecha + months(12), 
+                   by = "month")
+) %>%
+  mutate(
+    meses_adelante = row_number(),
+    años_adelante = meses_adelante / 12,
+    ventas_proyectadas = ultimo_valor * (1 + tcaa_proyeccion/100)^años_adelante,
+    tipo = "Proyección"
+  )
+
+# Combinar datos históricos y proyección
+datos_historicos <- datos_completos %>%
+  select(fecha, ventas_nominales) %>%
+  rename(ventas_proyectadas = ventas_nominales) %>%
+  mutate(tipo = "Histórico")
+
+datos_graficos <- bind_rows(datos_historicos, proyeccion)
+
+# Visualizar
+ggplot(datos_graficos, aes(x = fecha, y = ventas_proyectadas, color = tipo)) +
+  geom_line(size = 1.2) +
+  geom_vline(xintercept = ultima_fecha, linetype = "dashed", alpha = 0.5) +
+  annotate("text", x = ultima_fecha, y = max(datos_graficos$ventas_proyectadas) * 0.9,
+           label = "Inicio proyección", angle = 90, vjust = -0.5) +
+  scale_y_continuous(labels = dollar_format(prefix = "$", big.mark = ",")) +
+  scale_color_manual(values = c("Histórico" = "steelblue", 
+                                 "Proyección" = "coral")) +
+  labs(title = "Proyección de Ventas Usando TCAA",
+       subtitle = sprintf("TCAA utilizada: %.2f%% (últimos 2 años)", tcaa_proyeccion),
+       x = NULL, y = "Ventas",
+       color = NULL) +
+  theme(legend.position = "bottom")
+```
+
+## 4.7 Cuándo Usar TCAA
+
+**Usar TCAA cuando:**
+
+- Se necesita una medida de crecimiento de largo plazo
+- Se comparan crecimientos entre diferentes períodos o variables
+- Se busca una tasa "suavizada" sin fluctuaciones
+- Se proyectan valores futuros con tendencia constante
+
+**NO usar TCAA cuando:**
+
+- El período es muy corto (< 2 años)
+- Hay cambios estructurales importantes en el período
+- Se necesita capturar volatilidad o estacionalidad
+- Los datos tienen valores negativos
+
+**Ejemplo comparativo:**
+
+```{r ejemplo-comparativo-tcaa}
+# Comparar diferentes métricas de crecimiento
+comparacion_metricas <- datos_completos %>%
+  filter(!is.na(var_interanual)) %>%
+  summarise(
+    # Crecimiento total del período
+    crecimiento_total = ((last(ventas_nominales) / first(ventas_nominales)) - 1) * 100,
+    
+    # TCAA del período completo
+    años_totales = as.numeric(difftime(last(fecha), first(fecha), units = "days")) / 365.25,
+    TCAA = calcular_tcaa(first(ventas_nominales), last(ventas_nominales), años_totales),
+    
+    # Promedio de variaciones interanuales
+    promedio_var_ia = mean(var_interanual, na.rm = TRUE),
+    
+    # Mediana de variaciones interanuales
+    mediana_var_ia = median(var_interanual, na.rm = TRUE)
+  )
+
+comparacion_metricas %>%
+  select(crecimiento_total, TCAA, promedio_var_ia, mediana_var_ia) %>%
+  pivot_longer(everything(), names_to = "Métrica", values_to = "Valor (%)") %>%
+  mutate(Métrica = case_when(
+    Métrica == "crecimiento_total" ~ "Crecimiento Total",
+    Métrica == "TCAA" ~ "TCAA (Compuesta)",
+    Métrica == "promedio_var_ia" ~ "Promedio Var. Interanual",
+    Métrica == "mediana_var_ia" ~ "Mediana Var. Interanual"
+  )) %>%
+  kable(digits = 2,
+        caption = "Comparación de Diferentes Métricas de Crecimiento")
+```
+
+**Interpretación:**
+
+- El **Crecimiento Total** muestra el cambio total del período
+- La **TCAA** es el crecimiento anual equivalente constante
+- El **Promedio** de variaciones puede ser engañoso con volatilidad
+- La **TCAA** es la métrica más robusta para períodos largos
+
+---
+
+# 5. Ejercicio Práctico Integrador
+
+Vamos a aplicar todos los conceptos en un caso realista:
+
+```{r ejercicio-integrador}
+# Crear datos de salarios mensuales
+set.seed(789)
+
+datos_salarios <- tibble(
+  fecha = seq.Date(from = as.Date("2022-01-01"), 
+                   to = as.Date("2024-12-01"), 
+                   by = "month")
+) %>%
+  mutate(
+    # Salario nominal creciente
+    salario_nominal = 50000 * cumprod(1 + rnorm(n(), 0.04, 0.01))
+  ) %>%
+  left_join(ipc_data, by = "fecha") %>%
+  mutate(
+    # 1. Calcular salario real
+    salario_real = (salario_nominal / ipc) * 100,
+    
+    # 2. Indexar salarios (base enero 2022 = 100)
+    indice_salario_nominal = (salario_nominal / first(salario_nominal)) * 100,
+    indice_salario_real = (salario_real / first(salario_real)) * 100,
+    
+    # 3. Calcular variaciones interanuales
+    var_ia_salario_nominal = (salario_nominal / lag(salario_nominal, 12) - 1) * 100,
+    var_ia_salario_real = (salario_real / lag(salario_real, 12) - 1) * 100,
+    var_ia_ipc = (ipc / lag(ipc, 12) - 1) * 100,
+    
+    # 4. Calcular TCAA móvil de 2 años
+    tcaa_2años_nominal = calcular_tcaa(lag(salario_nominal, 24), salario_nominal, 2),
+    tcaa_2años_real = calcular_tcaa(lag(salario_real, 24), salario_real, 2)
+  )
+
+# Resumen estadístico
+resumen <- datos_salarios %>%
+  filter(!is.na(var_ia_salario_nominal)) %>%
+  summarise(
+    `Var. Media Salario Nominal` = mean(var_ia_salario_nominal),
+    `Var. Media Salario Real` = mean(var_ia_salario_real),
+    `Var. Media IPC` = mean(var_ia_ipc),
+    `Diferencia Nominal-Inflación` = `Var. Media Salario Nominal` - `Var. Media IPC`
+  )
+
+# Calcular TCAA del período completo
+tcaa_periodo <- datos_salarios %>%
+  summarise(
+    años = as.numeric(difftime(last(fecha), first(fecha), units = "days")) / 365.25,
+    `TCAA Salario Nominal` = calcular_tcaa(first(salario_nominal), last(salario_nominal), años),
+    `TCAA Salario Real` = calcular_tcaa(first(salario_real), last(salario_real), años),
+    `TCAA Inflación` = calcular_tcaa(first(ipc), last(ipc), años)
+  ) %>%
+  select(-años)
+
+# Combinar resúmenes
+bind_rows(
+  resumen %>% mutate(Tipo = "Promedios Variación I.A."),
+  tcaa_periodo %>% mutate(Tipo = "TCAA Período Completo")
+) %>%
+  select(Tipo, everything()) %>%
+  kable(digits = 2, caption = "Resumen del Ejercicio Integrador")
+```
+
+## Visualización Final
+
+```{r visualizacion-final, fig.height=12}
+# Panel 1: Índices
+p1 <- datos_salarios %>%
+  select(fecha, indice_salario_nominal, indice_salario_real, ipc) %>%
+  pivot_longer(cols = -fecha, names_to = "variable", values_to = "valor") %>%
+  mutate(variable = case_when(
+    variable == "indice_salario_nominal" ~ "Salario Nominal",
+    variable == "indice_salario_real" ~ "Salario Real",
+    variable == "ipc" ~ "IPC"
+  )) %>%
+  ggplot(aes(x = fecha, y = valor, color = variable)) +
+  geom_line(size = 1.2) +
+  geom_hline(yintercept = 100, linetype = "dashed", alpha = 0.3) +
+  scale_color_brewer(palette = "Set1") +
+  labs(title = "A) Evolución de Índices (Base Enero 2022 = 100)",
+       x = NULL, y = "Índice", color = NULL) +
+  theme(legend.position = "bottom")
+
+# Panel 2: Variaciones interanuales
+p2 <- datos_salarios %>%
+  filter(!is.na(var_ia_salario_nominal)) %>%
+  select(fecha, var_ia_salario_nominal, var_ia_salario_real, var_ia_ipc) %>%
+  pivot_longer(cols = -fecha, names_to = "variable", values_to = "valor") %>%
+  mutate(variable = case_when(
+    variable == "var_ia_salario_nominal" ~ "Salario Nominal",
+    variable == "var_ia_salario_real" ~ "Salario Real",
+    variable == "var_ia_ipc" ~ "Inflación (IPC)"
+  )) %>%
+  ggplot(aes(x = fecha, y = valor, color = variable)) +
+  geom_line(size = 1.2) +
+  geom_hline(yintercept = 0, linetype = "dashed", alpha = 0.3) +
+  scale_y_continuous(labels = percent_format(scale = 1)) +
+  scale_color_brewer(palette = "Set1") +
+  labs(title = "B) Variaciones Interanuales (%)",
+       x = NULL, y = "Variación % i.a.", color = NULL) +
+  theme(legend.position = "bottom")
+
+# Panel 3: TCAA móvil
+p3 <- datos_salarios %>%
+  filter(!is.na(tcaa_2años_nominal)) %>%
+  select(fecha, tcaa_2años_nominal, tcaa_2años_real) %>%
+  pivot_longer(cols = -fecha, names_to = "variable", values_to = "valor") %>%
+  mutate(variable = case_when(
+    variable == "tcaa_2años_nominal" ~ "TCAA Nominal (2 años)",
+    variable == "tcaa_2años_real" ~ "TCAA Real (2 años)"
+  )) %>%
+  ggplot(aes(x = fecha, y = valor, color = variable)) +
+  geom_line(size = 1.2) +
+  geom_hline(yintercept = 0, linetype = "dashed", alpha = 0.3) +
+  scale_y_continuous(labels = percent_format(scale = 1)) +
+  scale_color_manual(values = c("steelblue", "forestgreen")) +
+  labs(title = "C) Tasa de Crecimiento Anual Acumulada (TCAA)",
+       subtitle = "Ventana móvil de 2 años",
+       x = NULL, y = "TCAA (%)", color = NULL) +
+  theme(legend.position = "bottom")
+
+# Panel 4: Salarios en valores absolutos
+p4 <- datos_salarios %>%
+  select(fecha, salario_nominal, salario_real) %>%
+  pivot_longer(cols = -fecha, names_to = "variable", values_to = "valor") %>%
+  mutate(variable = case_when(
+    variable == "salario_nominal" ~ "Salario Nominal",
+    variable == "salario_real" ~ "Salario Real (pesos 2022)"
+  )) %>%
+  ggplot(aes(x = fecha, y = valor, color = variable)) +
+  geom_line(size = 1.2) +
+  scale_y_continuous(labels = dollar_format(prefix = "$", big.mark = ",")) +
+  scale_color_manual(values = c("steelblue", "forestgreen")) +
+  labs(title = "D) Salarios: Nominales vs Reales",
+       x = NULL, y = "Salario", color = NULL) +
+  theme(legend.position = "bottom")
+
+p1 / p2 / p3 / p4
+```
+
+---
+
+# 6. Conclusiones y Buenas Prácticas
+
+## 6.1 Resumen de Conceptos
+
+| Concepto | Fórmula | Uso Principal |
+|----------|---------|---------------|
+| Diferencia absoluta | $\Delta X = X_t - X_{t-1}$ | Cambios en unidades originales |
+| Variación % | $\frac{X_t - X_{t-1}}{X_{t-1}} \times 100$ | Cambios relativos comparables |
+| Indexación | $\frac{X_t}{X_{base}} \times 100$ | Comparar evolución relativa |
+| Deflactación | $\frac{X_{nominal}}{IPC} \times 100$ | Eliminar efecto inflación |
+| TCAA | $\left(\frac{X_{final}}{X_{inicial}}\right)^{1/n} - 1$ | Tasa crecimiento promedio anual |
+
+## 6.2 Buenas Prácticas con Tidyverse
+
+```{r buenas-practicas, eval=FALSE}
+# 1. Usar lag() para cálculos de variaciones
+data %>%
+  mutate(
+    var_mensual = (valor / lag(valor, 1) - 1) * 100,
+    var_anual = (valor / lag(valor, 12) - 1) * 100
+  )
+
+# 2. group_by() para cálculos por grupo
+data %>%
+  group_by(categoria) %>%
+  mutate(indice = (valor / first(valor)) * 100)
+
+# 3. Usar funciones auxiliares para claridad
+calcular_variacion <- function(x, periodos = 1) {
+  (x / lag(x, periodos) - 1) * 100
+}
+
+calcular_tcaa <- function(valor_inicial, valor_final, años) {
+  ((valor_final / valor_inicial)^(1/años) - 1) * 100
+}
+
+data %>%
+  mutate(
+    var_mensual = calcular_variacion(ventas, 1),
+    var_anual = calcular_variacion(ventas, 12),
+    tcaa_2años = calcular_tcaa(lag(ventas, 24), ventas, 2)
+  )
+
+# 4. Documentar la base de deflactación
+deflactar <- function(nominal, ipc, base_ipc = 100) {
+  (nominal / ipc) * base_ipc
+}
+```
+
+## 6.3 Puntos Clave para Recordar
+
+1. **Variaciones porcentuales** son mejores que absolutas para comparaciones
+2. **Variación interanual** elimina estacionalidad
+3. **Indexación** facilita comparaciones entre series diferentes
+4. **Deflactación** es esencial para análisis de largo plazo
+5. **TCAA** proporciona una medida suavizada de crecimiento de largo plazo
+6. **El cambio de base** no afecta las tasas de variación
+7. Siempre documentar claramente:
+   - El periodo base utilizado
+   - El deflactor empleado (IPC, IPM, etc.)
+   - Las unidades de medida
+   - El método de cálculo (TCAA, variación simple, etc.)
+
+---
+
