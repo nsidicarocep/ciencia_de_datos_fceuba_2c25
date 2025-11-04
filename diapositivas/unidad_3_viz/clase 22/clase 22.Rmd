@@ -1,0 +1,2033 @@
+---
+title: "Visualizaciones para Análisis Económico"
+subtitle: "Casos Prácticos para Mercado Laboral y Sectores Productivos"
+author: "Curso de Visualización de Datos"
+date: "`r Sys.Date()`"
+output:
+  xaringan::moon_reader:
+    css: [default, metropolis, metropolis-fonts]
+    lib_dir: libs
+    nature:
+      highlightStyle: github
+      highlightLines: true
+      countIncrementalSlides: false
+      ratio: "16:9"
+---
+
+```{r setup, include=FALSE}
+options(htmltools.dir.version = FALSE)
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE,
+                      fig.retina = 3, fig.width = 8, fig.height = 6)
+
+# Cargar librerías necesarias
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(knitr)
+library(kableExtra)
+library(scales)
+library(ggridges)
+library(patchwork)
+library(ggrepel)
+
+# Configurar tema por defecto
+theme_set(theme_minimal())
+```
+
+class: inverse, center, middle
+
+# Introducción
+## El poder de la visualización en análisis económico
+
+---
+
+# Objetivos de la clase
+
+Al finalizar esta sesión serán capaces de:
+
+- **Seleccionar** el tipo de visualización más apropiado para cada tipo de análisis económico
+
+- **Identificar** las ventajas y limitaciones de cada tipo de gráfico
+
+- **Evitar** las malas prácticas más comunes en visualización de datos económicos
+
+- **Aplicar** criterios profesionales para la construcción de dashboards estáticos
+
+- **Interpretar** visualizaciones complejas del mercado laboral y sectores productivos
+
+---
+
+# Estructura de la clase
+
+### **Metodología**: Caso → Solución → Análisis crítico
+
+Para cada escenario:
+
+1. **Presentación del caso**: Problema real de análisis económico
+2. **Solución visual**: Gráfico apropiado con código
+3. **Análisis crítico**: 
+   - ✅ Beneficios de esta visualización
+   - ⚠️ Dificultades y limitaciones
+   - ❌ Malas prácticas a evitar
+
+### **Foco temático**:
+- Mercado laboral
+- Sectores económicos  
+- Análisis regional
+
+---
+
+class: inverse, center, middle
+
+# Bloque 1: Fundamentos y Malas Prácticas
+## Casos 1-3
+
+---
+
+# Caso 1: Evolución del empleo por sector
+
+### **Situación del analista**:
+> "Necesito comparar cómo evolucionó el empleo en industria, servicios y construcción desde 2019 hasta hoy. El ministro quiere ver si hubo recuperación post-pandemia."
+
+### **Datos disponibles**:
+- Serie mensual de empleo registrado por sector
+- Período: enero 2019 - diciembre 2024
+- Tres sectores principales: Industria, Servicios, Construcción
+
+### **Pregunta clave**:
+¿Qué sectores se recuperaron más rápido? ¿Alguno superó niveles pre-pandemia?
+
+---
+
+# Solución 1: Líneas múltiples con índice base 100
+
+```{r caso1-solucion, fig.height=5}
+# Simular datos de empleo
+set.seed(123)
+fechas <- seq(as.Date("2019-01-01"), as.Date("2024-12-01"), by = "month")
+n <- length(fechas)
+
+# Crear tendencias realistas con impacto COVID
+datos_empleo <- data.frame(
+  fecha = rep(fechas, 3),
+  sector = rep(c("Industria", "Servicios", "Construcción"), each = n),
+  empleo = c(
+    # Industria: caída moderada, recuperación lenta
+    100 * c(seq(1, 1.05, length.out = 14), 
+            seq(1.05, 0.85, length.out = 4),  # Caída COVID
+            seq(0.85, 1.02, length.out = n-18)) + rnorm(n, 0, 2),
+    # Servicios: caída fuerte, recuperación rápida
+    100 * c(seq(1, 1.08, length.out = 14),
+            seq(1.08, 0.75, length.out = 4),  # Caída COVID
+            seq(0.75, 1.15, length.out = n-18)) + rnorm(n, 0, 2),
+    # Construcción: más volátil
+    100 * c(seq(1, 1.03, length.out = 14),
+            seq(1.03, 0.70, length.out = 4),  # Caída COVID
+            seq(0.70, 1.10, length.out = n-18)) + rnorm(n, 0, 3)
+  )
+)
+
+# Normalizar a base 100 en enero 2019
+datos_empleo <- datos_empleo %>%
+  group_by(sector) %>%
+  mutate(indice = 100 * empleo / first(empleo))
+
+# Gráfico
+ggplot(datos_empleo, aes(x = fecha, y = indice, color = sector)) +
+  geom_line(size = 1.2) +
+  geom_hline(yintercept = 100, linetype = "dashed", alpha = 0.5) +
+  geom_vline(xintercept = as.Date("2020-03-01"), 
+             linetype = "dotted", color = "red", alpha = 0.5) +
+  scale_color_manual(values = c("Industria" = "#2E86AB", 
+                                "Servicios" = "#A23B72", 
+                                "Construcción" = "#F18F01")) +
+  scale_y_continuous(breaks = seq(70, 120, 10)) +
+  labs(title = "Evolución del empleo por sector (Base 100 = Enero 2019)",
+       subtitle = "Impacto de la pandemia y recuperación diferencial",
+       x = NULL,
+       y = "Índice (Enero 2019 = 100)",
+       color = "Sector") +
+  theme_minimal() +
+  theme(legend.position = "bottom",
+        plot.title = element_text(face = "bold"))
+```
+
+---
+
+# Análisis Caso 1: Líneas con índice base
+
+### ✅ **Beneficios**:
+- **Comparación directa**: Todos los sectores en la misma escala
+- **Punto de referencia claro**: Base 100 facilita interpretar cambios porcentuales
+- **Tendencias evidentes**: Se visualiza claramente velocidad de recuperación
+
+### ⚠️ **Dificultades**:
+- **Pérdida de magnitudes absolutas**: No vemos cuál sector emplea más personas
+- **Sensible a período base**: Cambiar la base puede cambiar la interpretación
+- **Múltiples líneas**: Con >5 sectores se vuelve difícil de leer
+
+---
+
+# Mala práctica 1: Doble eje Y
+
+```{r mala-practica1, fig.height=5}
+# Datos para doble eje (MALA PRÁCTICA)
+datos_mal <- datos_empleo %>%
+  filter(sector %in% c("Industria", "Servicios")) %>%
+  pivot_wider(names_from = sector, values_from = indice)
+
+# Gráfico con doble eje - EJEMPLO DE LO QUE NO HACER
+par(mar = c(5, 4, 4, 4))
+plot(datos_mal$fecha, datos_mal$Industria, type = "l", col = "blue", lwd = 2,
+     ylim = c(70, 110), ylab = "Industria (índice)", xlab = "",
+     main = "MALA PRÁCTICA: Doble eje Y distorsiona la comparación")
+par(new = TRUE)
+plot(datos_mal$fecha, datos_mal$Servicios, type = "l", col = "red", lwd = 2,
+     axes = FALSE, xlab = "", ylab = "", ylim = c(60, 120))
+axis(4, col = "red", col.axis = "red")
+mtext("Servicios (índice)", side = 4, line = 2, col = "red")
+legend("topleft", legend = c("Industria", "Servicios"), 
+       col = c("blue", "red"), lty = 1, lwd = 2)
+text(as.Date("2022-01-01"), 90, "Las escalas diferentes\nhacen parecer que\nla correlación es mayor", 
+     cex = 0.8, col = "darkred")
+```
+
+### ❌ **Por qué evitar el doble eje Y**:
+- Manipula percepción de correlación
+- Dificulta comparación de magnitudes
+- Puede usarse para engañar deliberadamente
+
+---
+
+# Caso 2: Distribución salarial por industria
+
+### **Situación del analista**:
+> "El sindicato quiere comparar la distribución de salarios entre 10 sectores industriales. No solo el promedio, sino también la dispersión y los valores extremos."
+
+### **Datos disponibles**:
+- Salarios mensuales de trabajadores registrados
+- 10 sectores principales de la economía  
+- Necesidad de mostrar: mediana, cuartiles, outliers
+
+### **Pregunta clave**:
+¿Qué sectores tienen mayor desigualdad salarial interna?
+
+---
+
+# Solución 2a: Boxplot horizontal
+
+```{r caso2-boxplot, fig.height=5.5}
+# Simular datos salariales
+set.seed(456)
+sectores <- c("Tecnología", "Finanzas", "Manufactura", "Comercio", 
+              "Construcción", "Educación", "Salud", "Transporte", 
+              "Agricultura", "Servicios")
+
+datos_salarios <- data.frame(
+  sector = rep(sectores, each = 200),
+  salario = c(
+    rlnorm(200, log(180000), 0.4),  # Tecnología
+    rlnorm(200, log(150000), 0.5),  # Finanzas
+    rlnorm(200, log(80000), 0.3),   # Manufactura
+    rlnorm(200, log(60000), 0.35),  # Comercio
+    rlnorm(200, log(75000), 0.25),  # Construcción
+    rlnorm(200, log(65000), 0.2),   # Educación
+    rlnorm(200, log(70000), 0.3),   # Salud
+    rlnorm(200, log(72000), 0.28),  # Transporte
+    rlnorm(200, log(45000), 0.4),   # Agricultura
+    rlnorm(200, log(55000), 0.35)   # Servicios
+  )
+)
+
+# Ordenar por mediana
+orden_sectores <- datos_salarios %>%
+  group_by(sector) %>%
+  summarise(mediana = median(salario)) %>%
+  arrange(mediana) %>%
+  pull(sector)
+
+datos_salarios$sector <- factor(datos_salarios$sector, levels = orden_sectores)
+
+# Boxplot horizontal
+ggplot(datos_salarios, aes(x = salario/1000, y = sector, fill = sector)) +
+  geom_boxplot(alpha = 0.7, outlier.alpha = 0.3) +
+  scale_x_continuous(labels = scales::dollar_format(prefix = "$", suffix = "K"),
+                     breaks = seq(0, 400, 50)) +
+  scale_fill_viridis_d(option = "turbo") +
+  labs(title = "Distribución salarial por sector industrial",
+       subtitle = "Boxplot muestra mediana, cuartiles y valores atípicos",
+       x = "Salario mensual (en miles de pesos)",
+       y = NULL) +
+  theme_minimal() +
+  theme(legend.position = "none",
+        plot.title = element_text(face = "bold"))
+```
+
+---
+
+# Solución 2b: Violin plot para ver distribución completa
+
+```{r caso2-violin, fig.height=5.5}
+# Violin plot
+ggplot(datos_salarios, aes(x = salario/1000, y = sector, fill = sector)) +
+  geom_violin(alpha = 0.7, scale = "width") +
+  geom_boxplot(width = 0.1, alpha = 0.5, outlier.alpha = 0) +
+  scale_x_continuous(labels = scales::dollar_format(prefix = "$", suffix = "K"),
+                     breaks = seq(0, 400, 50)) +
+  scale_fill_viridis_d(option = "turbo") +
+  labs(title = "Distribución salarial por sector: Violin plot",
+       subtitle = "Muestra la densidad completa de la distribución + boxplot superpuesto",
+       x = "Salario mensual (en miles de pesos)",
+       y = NULL) +
+  theme_minimal() +
+  theme(legend.position = "none",
+        plot.title = element_text(face = "bold"))
+```
+
+---
+
+# Análisis Caso 2: Boxplot vs Violin plot
+
+### ✅ **Beneficios del Boxplot**:
+- **Estadísticos clave**: Mediana y cuartiles claramente visibles
+- **Outliers identificados**: Valores extremos destacados
+- **Comparación eficiente**: Fácil comparar medianas entre sectores
+
+### ✅ **Beneficios adicionales del Violin plot**:
+- **Distribución completa**: Muestra modas múltiples (ej: dos grupos salariales)
+- **Densidad visual**: Identifica concentraciones de salarios
+- **Asimetría evidente**: Visualiza sesgos en la distribución
+
+### ⚠️ **Limitaciones comunes**:
+- Requiere suficientes datos por categoría (n > 30)
+- Violin plot puede ser confuso para audiencias no técnicas
+
+---
+
+# Mala práctica 2: Usar solo promedios
+
+```{r mala-practica2, fig.height=5}
+# Calcular solo promedios (MALA PRÁCTICA)
+promedios <- datos_salarios %>%
+  group_by(sector) %>%
+  summarise(promedio = mean(salario)/1000,
+            mediana = median(salario)/1000,
+            p90 = quantile(salario, 0.9)/1000,
+            p10 = quantile(salario, 0.1)/1000) %>%
+  arrange(promedio)
+
+promedios$sector <- factor(promedios$sector, levels = promedios$sector)
+
+# Gráfico de barras con solo promedios
+ggplot(promedios, aes(x = sector, y = promedio)) +
+  geom_col(fill = "steelblue", alpha = 0.7) +
+  geom_text(aes(label = paste0("$", round(promedio), "K")), 
+            vjust = -0.5, size = 3) +
+  coord_flip() +
+  labs(title = "MALA PRÁCTICA: Mostrar solo el promedio oculta información crítica",
+       subtitle = "No vemos dispersión, asimetría, ni valores extremos",
+       x = NULL,
+       y = "Salario promedio (miles de pesos)") +
+  theme_minimal() +
+  annotate("text", x = 3, y = 120, 
+           label = "¡El promedio puede ser\nmuy engañoso con\ndistribuciones asimétricas!",
+           color = "red", fontface = "bold", size = 4)
+```
+
+### ❌ **Por qué evitar mostrar solo promedios**:
+- Oculta desigualdad interna
+- Sensible a valores extremos  
+- No muestra dispersión
+
+---
+
+# Caso 3: Cambio en productividad sectorial
+
+### **Situación del analista**:
+> "La Secretaría de Desarrollo Productivo necesita visualizar cómo cambió la productividad (VAB por trabajador) en cada rama industrial comparando 2019 vs 2024."
+
+### **Datos disponibles**:
+- Valor Agregado Bruto por trabajador para 15 ramas industriales
+- Dos puntos en el tiempo: 2019 (pre-pandemia) y 2024 (actual)
+- Algunas ramas mejoraron, otras empeoraron
+
+### **Pregunta clave**:
+¿Qué sectores ganaron y perdieron productividad? ¿Cuál fue la magnitud del cambio?
+
+---
+
+# Solución 3a: Dumbbell plot
+
+```{r caso3-dumbbell, fig.height=5.5}
+# Simular datos de productividad
+set.seed(789)
+ramas <- c("Software", "Alimentos", "Textil", "Química", "Automotriz",
+           "Metalurgia", "Plásticos", "Farmacéutica", "Maquinaria",
+           "Papel", "Minería", "Petróleo", "Construcción", "Comercio", "Transporte")
+
+datos_productividad <- data.frame(
+  rama = ramas,
+  prod_2019 = runif(15, 50, 200),
+  prod_2024 = NA
+)
+
+# Simular cambios realistas
+datos_productividad$prod_2024 <- datos_productividad$prod_2019 * 
+  (1 + rnorm(15, mean = 0.15, sd = 0.25))
+
+# Calcular cambio y ordenar
+datos_productividad <- datos_productividad %>%
+  mutate(cambio_pct = (prod_2024 - prod_2019) / prod_2019 * 100,
+         mejoro = prod_2024 > prod_2019) %>%
+  arrange(prod_2024)
+
+datos_productividad$rama <- factor(datos_productividad$rama, 
+                                   levels = datos_productividad$rama)
+
+# Dumbbell plot
+ggplot(datos_productividad, aes(y = rama)) +
+  geom_segment(aes(x = prod_2019, xend = prod_2024, yend = rama),
+               color = "gray70", size = 1.5) +
+  geom_point(aes(x = prod_2019), color = "#E74C3C", size = 3) +
+  geom_point(aes(x = prod_2024), color = "#27AE60", size = 3) +
+  geom_text(aes(x = prod_2024, label = sprintf("%+.1f%%", cambio_pct)),
+            hjust = -0.3, size = 3) +
+  scale_x_continuous(labels = scales::dollar_format(prefix = "$", suffix = "K")) +
+  labs(title = "Cambio en productividad por rama industrial (2019 vs 2024)",
+       subtitle = "Valor Agregado Bruto por trabajador (en miles de pesos constantes)",
+       x = "VAB por trabajador",
+       y = NULL,
+       caption = "🔴 2019 | 🟢 2024") +
+  theme_minimal() +
+  theme(plot.title = element_text(face = "bold"))
+```
+
+---
+
+# Solución 3b: Slope chart para rankings
+
+```{r caso3-slope, fig.height=5.5}
+# Preparar datos para slope chart
+datos_slope <- datos_productividad %>%
+  select(rama, prod_2019, prod_2024) %>%
+  mutate(rank_2019 = rank(-prod_2019),
+         rank_2024 = rank(-prod_2024)) %>%
+  pivot_longer(cols = c(rank_2019, rank_2024),
+               names_to = "año",
+               values_to = "ranking") %>%
+  mutate(año = ifelse(año == "rank_2019", "2019", "2024"))
+
+# Identificar los que más cambiaron
+top_cambios <- datos_productividad %>%
+  mutate(cambio_ranking = rank(-prod_2019) - rank(-prod_2024)) %>%
+  filter(abs(cambio_ranking) > 3) %>%
+  pull(rama)
+
+# Slope chart
+ggplot(datos_slope, aes(x = año, y = ranking, group = rama)) +
+  geom_line(aes(color = rama %in% top_cambios), size = 1, alpha = 0.7) +
+  geom_point(size = 3, aes(color = rama %in% top_cambios)) +
+  geom_text(data = filter(datos_slope, año == "2019"),
+            aes(label = rama), hjust = 1.1, size = 3) +
+  geom_text(data = filter(datos_slope, año == "2024"),
+            aes(label = rama), hjust = -0.1, size = 3) +
+  scale_y_reverse(breaks = 1:15) +
+  scale_color_manual(values = c("gray70", "red")) +
+  labs(title = "Cambio en ranking de productividad (2019 → 2024)",
+       subtitle = "Resaltados en rojo: sectores con cambios significativos (>3 posiciones)",
+       x = NULL,
+       y = "Ranking") +
+  theme_minimal() +
+  theme(legend.position = "none",
+        panel.grid.major.x = element_blank(),
+        plot.title = element_text(face = "bold"))
+```
+
+---
+
+# Análisis Caso 3: Dumbbell vs Slope
+
+### ✅ **Dumbbell plot - Beneficios**:
+- **Magnitud del cambio**: Valores absolutos visibles
+- **Dirección clara**: Mejora/empeora evidente
+- **Espacio para etiquetas**: Porcentajes de cambio
+
+### ✅ **Slope chart - Beneficios**:
+- **Rankings relativos**: Cambios de posición 
+- **Narrativa de competencia**: "Ganadores y perdedores"
+- **Patrones de grupo**: Convergencia/divergencia
+
+### ⚠️ **Decisión clave**:
+- Dumbbell → Cuando importan los valores absolutos
+- Slope → Cuando importa la posición relativa
+
+---
+
+class: inverse, center, middle
+
+# Bloque 2: Análisis Multidimensional
+## Casos 4-6
+
+---
+
+# Caso 4: Relación empleo-salario-tamaño por sector
+
+### **Situación del analista**:
+> "El Ministerio de Desarrollo necesita identificar sectores estratégicos: aquellos con alto empleo, buenos salarios y que además estén creciendo."
+
+### **Datos disponibles**:
+- Empleo total por sector (miles de trabajadores)
+- Salario medio mensual por sector  
+- Tasa de crecimiento del empleo (último año)
+- 20 sectores de la economía
+
+### **Pregunta clave**:
+¿Qué sectores combinan las tres características deseables?
+
+---
+
+# Solución 4: Bubble plot multidimensional
+
+```{r caso4-bubble, fig.height=5.5}
+# Simular datos multidimensionales
+set.seed(321)
+sectores_bubble <- c("TIC", "Finanzas", "Industria", "Comercio", "Construcción",
+                     "Educación", "Salud", "Transporte", "Agro", "Minería",
+                     "Energía", "Turismo", "Inmobiliario", "Profesionales",
+                     "Administrativos", "Arte", "Comunicaciones", "Seguros",
+                     "Logística", "Investigación")
+
+datos_bubble <- data.frame(
+  sector = sectores_bubble,
+  empleo = runif(20, 10, 500),  # Miles de empleados
+  salario = runif(20, 40, 150),  # Miles de pesos
+  crecimiento = rnorm(20, 3, 8)  # % crecimiento anual
+)
+
+# Identificar cuadrante deseable
+datos_bubble <- datos_bubble %>%
+  mutate(deseable = empleo > median(empleo) & 
+                     salario > median(salario) & 
+                     crecimiento > 5)
+
+# Bubble plot
+ggplot(datos_bubble, aes(x = empleo, y = salario, size = abs(crecimiento))) +
+  geom_hline(yintercept = median(datos_bubble$salario), 
+             linetype = "dashed", alpha = 0.3) +
+  geom_vline(xintercept = median(datos_bubble$empleo), 
+             linetype = "dashed", alpha = 0.3) +
+  geom_point(aes(color = crecimiento), alpha = 0.7) +
+  geom_text(data = filter(datos_bubble, deseable),
+            aes(label = sector), size = 3, vjust = -1) +
+  scale_color_gradient2(low = "red", mid = "gray", high = "green", 
+                        midpoint = 0, name = "Crecimiento (%)") +
+  scale_size_continuous(range = c(3, 15), name = "Crecimiento\nabsoluto (%)") +
+  scale_x_continuous(labels = scales::comma_format()) +
+  scale_y_continuous(labels = scales::dollar_format(prefix = "$", suffix = "K")) +
+  labs(title = "Análisis multidimensional de sectores económicos",
+       subtitle = "Tamaño = crecimiento | Color = dirección | Posición = empleo vs salario",
+       x = "Empleo total (miles de trabajadores)",
+       y = "Salario medio mensual") +
+  theme_minimal() +
+  theme(plot.title = element_text(face = "bold")) +
+  annotate("text", x = max(datos_bubble$empleo) * 0.8, 
+           y = max(datos_bubble$salario) * 0.95,
+           label = "Cuadrante ideal:\nAlto empleo +\nAlto salario", 
+           fontface = "bold", color = "darkgreen")
+```
+
+---
+
+# Análisis Caso 4: Bubble plot
+
+### ✅ **Beneficios**:
+- **Tres variables continuas**: x, y, tamaño (opcionalmente color)
+- **Patrones emergentes**: Clusters y outliers visibles
+- **Comparación simultánea**: Todos los trade-offs en un gráfico
+
+### ⚠️ **Dificultades**:
+- **Percepción del área**: Cerebro no es preciso comparando círculos
+- **Superposición**: Burbujas pueden taparse entre sí
+- **Límite cognitivo**: Máximo 20-30 burbujas legibles
+
+### 🔧 **Buenas prácticas**:
+- Usar transparencia (alpha)
+- Etiquetar solo las burbujas clave
+- Incluir líneas de referencia (medianas)
+
+---
+
+# Mala práctica 4: Áreas no proporcionales
+
+```{r mala-practica4, fig.height=5}
+# MALA PRÁCTICA: Usar radio en lugar de área
+datos_mal_bubble <- datos_bubble[1:10,]
+
+par(mfrow = c(1, 2))
+
+# Incorrecto: Radio proporcional al valor
+plot(datos_mal_bubble$empleo, datos_mal_bubble$salario,
+     cex = datos_mal_bubble$crecimiento/3,  # INCORRECTO
+     pch = 19, col = rgb(0.2, 0.5, 0.8, 0.5),
+     main = "INCORRECTO: Radio ∝ valor",
+     xlab = "Empleo", ylab = "Salario")
+text(250, 140, "Valor 4 parece\n16 veces mayor\nque valor 1", col = "red")
+
+# Correcto: Área proporcional al valor
+plot(datos_mal_bubble$empleo, datos_mal_bubble$salario,
+     cex = sqrt(datos_mal_bubble$crecimiento/pi),  # CORRECTO
+     pch = 19, col = rgb(0.2, 0.8, 0.3, 0.5),
+     main = "CORRECTO: Área ∝ valor",
+     xlab = "Empleo", ylab = "Salario")
+text(250, 140, "Valor 4 es\n4 veces mayor\nque valor 1", col = "darkgreen")
+```
+
+### ❌ **El error del radio vs área**:
+- Si duplicas el radio, el área se cuadruplica
+- Distorsión exponencial de las diferencias
+
+---
+
+# Caso 5: Brecha salarial de género por edad y sector
+
+### **Situación del analista**:
+> "El Instituto de Estadística necesita un mapa de calor que muestre dónde (sector y edad) la brecha salarial de género es más pronunciada."
+
+### **Datos disponibles**:
+- Salario medio por género, edad y sector
+- Grupos etarios: 18-25, 26-35, 36-45, 46-55, 56-65
+- 8 sectores principales
+- Brecha calculada como: (Sal_Hombre - Sal_Mujer) / Sal_Hombre * 100
+
+### **Pregunta clave**:
+¿En qué combinaciones edad-sector la brecha es mayor? ¿Hay patrones?
+
+---
+
+# Solución 5: Heatmap ordenado
+
+```{r caso5-heatmap, fig.height=6}
+# Simular datos de brecha salarial
+set.seed(654)
+edades <- c("18-25", "26-35", "36-45", "46-55", "56-65")
+sectores_brecha <- c("Tecnología", "Finanzas", "Industria", "Comercio",
+                     "Educación", "Salud", "Público", "Servicios")
+
+# Crear matriz de brechas (realista: aumenta con edad, varía por sector)
+datos_brecha <- expand.grid(edad = edades, sector = sectores_brecha)
+datos_brecha$brecha <- c(
+  # Patrón: brecha aumenta con edad, pero varía por sector
+  rnorm(5, c(5, 8, 12, 15, 18), 2),   # Tecnología
+  rnorm(5, c(8, 15, 22, 28, 30), 3),  # Finanzas
+  rnorm(5, c(6, 10, 15, 18, 20), 2),  # Industria
+  rnorm(5, c(4, 8, 11, 14, 16), 2),   # Comercio
+  rnorm(5, c(2, 3, 5, 6, 7), 1),      # Educación
+  rnorm(5, c(-2, 0, 2, 3, 4), 1),     # Salud (mujeres ganan más jóvenes)
+  rnorm(5, c(3, 5, 8, 10, 12), 1.5),  # Público
+  rnorm(5, c(5, 9, 13, 16, 19), 2)    # Servicios
+)
+
+# Ordenar sectores por brecha promedio
+orden_sectores_brecha <- datos_brecha %>%
+  group_by(sector) %>%
+  summarise(brecha_media = mean(brecha)) %>%
+  arrange(desc(brecha_media)) %>%
+  pull(sector)
+
+datos_brecha$sector <- factor(datos_brecha$sector, levels = orden_sectores_brecha)
+datos_brecha$edad <- factor(datos_brecha$edad, levels = edades)
+
+# Heatmap
+ggplot(datos_brecha, aes(x = edad, y = sector, fill = brecha)) +
+  geom_tile(color = "white", size = 0.5) +
+  geom_text(aes(label = sprintf("%.1f%%", brecha)), size = 3) +
+  scale_fill_gradient2(low = "darkgreen", mid = "white", high = "darkred",
+                       midpoint = 0, 
+                       name = "Brecha\nsalarial (%)",
+                       limits = c(-5, 35)) +
+  labs(title = "Brecha salarial de género por edad y sector",
+       subtitle = "Valores positivos = hombres ganan más | Negativos = mujeres ganan más",
+       x = "Grupo etario",
+       y = NULL) +
+  theme_minimal() +
+  theme(plot.title = element_text(face = "bold"),
+        axis.text.x = element_text(angle = 0),
+        panel.grid = element_blank())
+```
+
+---
+
+# Análisis Caso 5: Heatmap
+
+### ✅ **Beneficios del heatmap**:
+- **Patrones 2D**: Cruza dos variables categóricas
+- **Intensidad visual**: Color comunica magnitud intuitivamente  
+- **Comparación matricial**: Todas las combinaciones visibles
+
+### ⚠️ **Consideraciones de diseño**:
+- **Escala de color**: Divergente para datos con punto medio significativo
+- **Orden de categorías**: Ordenar por promedio mejora lectura
+- **Valores en celdas**: Agregar números cuando precisión importa
+
+### 🎨 **Accesibilidad**:
+- Evitar rojo-verde (8% población con daltonismo)
+- Usar ColorBrewer o Viridis para paletas accesibles
+
+---
+
+# Mala práctica 5: Semáforos rojo-verde
+
+```{r mala-practica5, fig.height=5}
+# MALA PRÁCTICA: Semáforo rojo-verde
+datos_semaforo <- datos_brecha[1:24,]  # Subset para simplicidad
+
+# Versión problemática
+p1 <- ggplot(datos_semaforo, aes(x = edad, y = sector, fill = brecha)) +
+  geom_tile(color = "white") +
+  scale_fill_gradient2(low = "green", mid = "yellow", high = "red",
+                       midpoint = 15, name = "Brecha (%)") +
+  labs(title = "PROBLEMA: Semáforo rojo-verde",
+       subtitle = "8% de hombres y 0.5% de mujeres no distinguen rojo-verde") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# Versión accesible
+p2 <- ggplot(datos_semaforo, aes(x = edad, y = sector, fill = brecha)) +
+  geom_tile(color = "white") +
+  scale_fill_gradient2(low = "blue", mid = "white", high = "orange",
+                       midpoint = 15, name = "Brecha (%)") +
+  labs(title = "MEJOR: Escala azul-naranja",
+       subtitle = "Accesible para todos los tipos de daltonismo") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+p1 / p2
+```
+
+---
+
+# Caso 6: Composición del empleo regional
+
+### **Situación del analista**:
+> "Necesitamos mostrar la estructura productiva de cada provincia: qué porcentaje del empleo corresponde a cada sector económico."
+
+### **Datos disponibles**:
+- Empleo por sector en 6 provincias principales
+- 5 sectores: Primario, Industria, Construcción, Comercio, Servicios
+- Datos como porcentaje del empleo total provincial
+
+### **Pregunta clave**:
+¿Qué provincias están más diversificadas? ¿Cuáles dependen de un sector?
+
+---
+
+# Solución 6a: Stacked bars 100%
+
+```{r caso6-stacked, fig.height=5.5}
+# Simular datos de composición regional
+set.seed(987)
+provincias <- c("Buenos Aires", "Córdoba", "Santa Fe", "Mendoza", "Tucumán", "Neuquén")
+sectores_comp <- c("Primario", "Industria", "Construcción", "Comercio", "Servicios")
+
+# Crear perfiles diferentes por provincia
+datos_composicion <- data.frame(
+  provincia = rep(provincias, each = 5),
+  sector = rep(sectores_comp, 6),
+  empleo_pct = c(
+    c(5, 25, 8, 22, 40),   # Buenos Aires - diversificado
+    c(15, 20, 7, 20, 38),  # Córdoba - más agro
+    c(18, 22, 6, 18, 36),  # Santa Fe - agro+industria
+    c(12, 15, 8, 25, 40),  # Mendoza - comercio+servicios
+    c(20, 12, 9, 19, 40),  # Tucumán - primario
+    c(8, 10, 12, 15, 55)   # Neuquén - servicios (petróleo)
+  )
+)
+
+# Ordenar por sector predominante
+datos_composicion$sector <- factor(datos_composicion$sector, 
+                                   levels = c("Servicios", "Comercio", "Industria", 
+                                             "Construcción", "Primario"))
+
+# Stacked bar 100%
+ggplot(datos_composicion, aes(x = provincia, y = empleo_pct, fill = sector)) +
+  geom_col(position = "stack", width = 0.7) +
+  geom_text(aes(label = ifelse(empleo_pct > 8, paste0(empleo_pct, "%"), "")),
+            position = position_stack(vjust = 0.5), size = 3) +
+  scale_fill_manual(values = c("Servicios" = "#2E86AB",
+                               "Comercio" = "#A23B72", 
+                               "Industria" = "#F18F01",
+                               "Construcción" = "#C73E1D",
+                               "Primario" = "#6A994E")) +
+  scale_y_continuous(labels = scales::percent_format(scale = 1)) +
+  labs(title = "Composición del empleo por provincia",
+       subtitle = "Estructura productiva como % del empleo total provincial",
+       x = NULL,
+       y = "Porcentaje del empleo",
+       fill = "Sector") +
+  theme_minimal() +
+  theme(plot.title = element_text(face = "bold"),
+        legend.position = "bottom")
+```
+
+---
+
+# Solución 6b: Treemap para jerarquía
+
+```{r caso6-treemap, fig.height=5.5, message=FALSE}
+library(treemapify)
+
+# Preparar datos para treemap (ejemplo con una provincia)
+datos_tree <- datos_composicion %>%
+  filter(provincia == "Buenos Aires") %>%
+  mutate(empleo_abs = empleo_pct * 100)  # Simular valores absolutos
+
+# Treemap
+ggplot(datos_tree, aes(area = empleo_abs, fill = sector, label = sector)) +
+  geom_treemap() +
+  geom_treemap_text(aes(label = paste(sector, "\n", empleo_pct, "%")),
+                    color = "white", place = "centre", grow = FALSE) +
+  scale_fill_manual(values = c("Servicios" = "#2E86AB",
+                               "Comercio" = "#A23B72", 
+                               "Industria" = "#F18F01",
+                               "Construcción" = "#C73E1D",
+                               "Primario" = "#6A994E")) +
+  labs(title = "Composición del empleo en Buenos Aires",
+       subtitle = "Tamaño proporcional al porcentaje de empleo",
+       fill = "Sector") +
+  theme_minimal() +
+  theme(plot.title = element_text(face = "bold"),
+        legend.position = "none")
+```
+
+---
+
+# Análisis Caso 6: Stacked bars vs Treemap
+
+### ✅ **Stacked bars 100% - Beneficios**:
+- **Comparación entre unidades**: Fácil ver diferencias entre provincias
+- **Proporciones exactas**: Altura directamente proporcional
+- **Orden consistente**: Misma secuencia facilita comparación
+
+### ✅ **Treemap - Beneficios**:
+- **Uso eficiente del espacio**: Ideal para muchas categorías
+- **Jerarquías anidadas**: Puede mostrar sub-categorías
+- **Impacto visual**: Tamaños muy intuitivos
+
+### ⚠️ **Trade-off clave**:
+- Stacked → Comparar entre grupos
+- Treemap → Entender composición de un grupo
+
+---
+
+class: inverse, center, middle
+
+# Bloque 3: Series Temporales y Comparaciones
+## Casos 7-9
+
+---
+
+# Caso 7: Estacionalidad del empleo agrícola
+
+### **Situación del analista**:
+> "El Ministerio de Agricultura necesita visualizar los patrones estacionales del empleo rural, diferenciando época de cosecha del resto del año."
+
+### **Datos disponibles**:
+- Serie mensual de empleo agrícola (5 años)
+- Marcada estacionalidad por cosechas
+- Bandas de confianza basadas en variabilidad histórica
+
+### **Pregunta clave**:
+¿Cuándo ocurren los picos de empleo? ¿Qué tan predecibles son?
+
+---
+
+# Solución 7a: Area chart con bandas de confianza
+
+```{r caso7-area, fig.height=5.5}
+# Simular datos estacionales
+set.seed(246)
+meses <- rep(1:12, 5)
+años <- rep(2020:2024, each = 12)
+
+# Patrón estacional: pico en marzo (cosecha) y octubre (siembra)
+patron_base <- c(80, 85, 120, 110, 90, 85, 80, 85, 95, 115, 95, 85)
+datos_estacional <- data.frame(
+  fecha = seq(as.Date("2020-01-01"), by = "month", length.out = 60),
+  mes = meses,
+  año = años,
+  empleo = rep(patron_base, 5) + rnorm(60, 0, 5) + rep(0:4, each = 12) * 2
+)
+
+# Calcular estadísticas por mes
+resumen_mensual <- datos_estacional %>%
+  group_by(mes) %>%
+  summarise(
+    media = mean(empleo),
+    p25 = quantile(empleo, 0.25),
+    p75 = quantile(empleo, 0.75),
+    min = min(empleo),
+    max = max(empleo)
+  )
+
+# Agregar nombres de meses
+resumen_mensual$mes_nombre <- factor(month.abb[resumen_mensual$mes], 
+                                     levels = month.abb)
+
+# Area chart con bandas
+ggplot(resumen_mensual, aes(x = mes)) +
+  geom_ribbon(aes(ymin = min, ymax = max), fill = "gray90") +
+  geom_ribbon(aes(ymin = p25, ymax = p75), fill = "steelblue", alpha = 0.5) +
+  geom_line(aes(y = media), color = "darkblue", size = 1.5) +
+  geom_point(aes(y = media), color = "darkblue", size = 3) +
+  scale_x_continuous(breaks = 1:12, labels = month.abb) +
+  labs(title = "Patrón estacional del empleo agrícola",
+       subtitle = "Media histórica con bandas de confianza (percentiles 25-75 y min-max)",
+       x = "Mes",
+       y = "Empleo (miles de trabajadores)") +
+  theme_minimal() +
+  theme(plot.title = element_text(face = "bold")) +
+  annotate("text", x = 3, y = 125, label = "Pico de\ncosecha", 
+           fontface = "bold", color = "darkgreen") +
+  annotate("text", x = 10, y = 120, label = "Pico de\nsiembra", 
+           fontface = "bold", color = "darkgreen")
+```
+
+---
+
+# Solución 7b: Ridgeline plot
+
+```{r caso7-ridgeline, fig.height=5.5, message=FALSE}
+# Preparar datos para ridgeline
+datos_ridge <- datos_estacional %>%
+  mutate(mes_nombre = factor(month.abb[mes], levels = rev(month.abb)))
+
+# Ridgeline plot
+ggplot(datos_ridge, aes(x = empleo, y = mes_nombre, fill = ..x..)) +
+  geom_density_ridges_gradient(scale = 2, gradient_lwd = 1) +
+  scale_fill_viridis_c(name = "Empleo\n(miles)", option = "turbo") +
+  labs(title = "Distribución mensual del empleo agrícola",
+       subtitle = "Densidad del empleo por mes (2020-2024)",
+       x = "Empleo (miles de trabajadores)",
+       y = NULL) +
+  theme_minimal() +
+  theme(plot.title = element_text(face = "bold"),
+        legend.position = "right")
+```
+
+---
+
+# Análisis Caso 7: Area chart vs Ridgeline
+
+### ✅ **Area chart con bandas - Beneficios**:
+- **Incertidumbre cuantificada**: Rangos de confianza claros
+- **Tendencia central**: Media destacada
+- **Comparación temporal**: Secuencia mensual natural
+
+### ✅ **Ridgeline plot - Beneficios**:
+- **Distribución completa**: No solo media y percentiles
+- **Multimodalidad**: Detecta si hay varios "tipos" de meses
+- **Estética moderna**: Visual atractiva para reportes
+
+---
+
+# Caso 8: Convergencia/divergencia regional
+
+### **Situación del analista**:
+> "¿Se están achicando las brechas de desarrollo entre provincias? Necesitamos ver la evolución del PBI per cápita provincial en los últimos 20 años."
+
+### **Datos disponibles**:
+- PBI per cápita por provincia (2004-2024)
+- 6 provincias principales
+- Interesa ver si convergen o divergen
+
+### **Pregunta clave**:
+¿Las provincias pobres están alcanzando a las ricas? (convergencia)
+
+---
+
+# Solución 8: Connected scatter plot
+
+```{r caso8-connected, fig.height=5.5}
+# Simular datos de convergencia
+set.seed(135)
+años_conv <- 2004:2024
+provincias_conv <- c("CABA", "Santa Cruz", "Neuquén", "Buenos Aires", "Tucumán", "Formosa")
+
+# Crear trayectorias con cierta convergencia
+datos_convergencia <- expand.grid(año = años_conv, provincia = provincias_conv)
+datos_convergencia <- datos_convergencia %>%
+  group_by(provincia) %>%
+  mutate(
+    pbi_inicial = case_when(
+      provincia == "CABA" ~ 100,
+      provincia == "Santa Cruz" ~ 85,
+      provincia == "Neuquén" ~ 80,
+      provincia == "Buenos Aires" ~ 60,
+      provincia == "Tucumán" ~ 35,
+      provincia == "Formosa" ~ 30
+    ),
+    # Convergencia parcial: pobres crecen más rápido
+    tasa_crecimiento = 0.03 + (100 - pbi_inicial) / 2000,
+    pbi_pc = pbi_inicial * (1 + tasa_crecimiento)^(año - 2004) + rnorm(n(), 0, 2)
+  )
+
+# Calcular coeficiente de variación para medir convergencia
+cv_anual <- datos_convergencia %>%
+  group_by(año) %>%
+  summarise(cv = sd(pbi_pc) / mean(pbi_pc) * 100)
+
+# Connected scatter
+ggplot(datos_convergencia, aes(x = año, y = pbi_pc, color = provincia)) +
+  geom_line(size = 1.2, alpha = 0.8) +
+  geom_point(data = filter(datos_convergencia, año %in% c(2004, 2024)),
+             size = 3) +
+  scale_color_manual(values = c("CABA" = "#E74C3C",
+                                "Santa Cruz" = "#3498DB",
+                                "Neuquén" = "#2ECC71",
+                                "Buenos Aires" = "#F39C12",
+                                "Tucumán" = "#9B59B6",
+                                "Formosa" = "#1ABC9C")) +
+  labs(title = "Convergencia regional en PBI per cápita",
+       subtitle = "Evolución 2004-2024 (índice base: promedio nacional = 50)",
+       x = "Año",
+       y = "PBI per cápita (índice)",
+       color = "Provincia") +
+  theme_minimal() +
+  theme(plot.title = element_text(face = "bold"),
+        legend.position = "right") +
+  annotate("text", x = 2014, y = 35,
+           label = paste("Coef. Variación:\n2004:", round(cv_anual$cv[1], 1), "%\n",
+                        "2024:", round(cv_anual$cv[21], 1), "%"),
+           size = 3, fontface = "italic")
+```
+
+---
+
+# Análisis Caso 8: Connected scatter
+
+### ✅ **Beneficios**:
+- **Trayectorias individuales**: Cada provincia tiene su historia
+- **Convergencia visual**: Líneas que se acercan = convergencia
+- **Comparación de velocidades**: Pendientes indican tasas de crecimiento
+
+### 📈 **Métricas de convergencia**:
+- **Convergencia σ**: Reducción en desviación estándar
+- **Convergencia β**: Correlación negativa entre nivel inicial y crecimiento
+- **Coeficiente de variación**: Dispersión relativa
+
+---
+
+# Mala práctica 8: Animar sin valor analítico
+
+```{r mala-practica8, fig.height=5}
+# Mostrar por qué no siempre conviene animar
+datos_simple <- datos_convergencia %>%
+  filter(año %in% c(2004, 2014, 2024))
+
+ggplot(datos_simple, aes(x = provincia, y = pbi_pc, fill = as.factor(año))) +
+  geom_col(position = "dodge") +
+  scale_fill_manual(values = c("2004" = "gray70", "2014" = "steelblue", "2024" = "darkblue"),
+                    name = "Año") +
+  labs(title = "PROBLEMA: ¿Por qué animar esto?",
+       subtitle = "A veces un gráfico estático comunica mejor que una animación",
+       x = NULL,
+       y = "PBI per cápita") +
+  theme_minimal() +
+  theme(plot.title = element_text(face = "bold"),
+        axis.text.x = element_text(angle = 45, hjust = 1)) +
+  annotate("text", x = 3.5, y = 120,
+           label = "La animación puede:\n• Dificultar comparaciones\n• Requerir más tiempo\n• Perderse en presentaciones",
+           size = 3, color = "red", fontface = "bold")
+```
+
+---
+
+# Caso 9: Matriz de transición laboral
+
+### **Situación del analista**:
+> "Necesitamos entender los flujos de trabajadores entre estados laborales: formal, informal, desempleo e inactividad en un período de un año."
+
+### **Datos disponibles**:
+- Panel de trabajadores seguidos durante un año
+- Estado inicial y final de cada trabajador  
+- 4 estados: Formal, Informal, Desempleo, Inactivo
+- Porcentajes de transición entre estados
+
+### **Pregunta clave**:
+¿Qué tan estables son los empleos formales? ¿Hacia dónde van los desempleados?
+
+---
+
+# Solución 9: Matriz de calor con valores
+
+```{r caso9-matriz, fig.height=5.5}
+# Crear matriz de transición realista
+estados <- c("Formal", "Informal", "Desempleo", "Inactivo")
+
+# Probabilidades de transición (filas suman 100%)
+matriz_transicion <- matrix(c(
+  85, 8, 3, 4,    # Desde Formal
+  15, 70, 8, 7,    # Desde Informal  
+  25, 35, 30, 10,  # Desde Desempleo
+  5, 10, 15, 70    # Desde Inactivo
+), byrow = TRUE, nrow = 4)
+
+# Convertir a dataframe
+datos_transicion <- expand.grid(origen = estados, destino = estados)
+datos_transicion$porcentaje <- as.vector(t(matriz_transicion))
+
+# Reordenar factores
+datos_transicion$origen <- factor(datos_transicion$origen, levels = estados)
+datos_transicion$destino <- factor(datos_transicion$destino, levels = estados)
+
+# Heatmap
+ggplot(datos_transicion, aes(x = destino, y = origen, fill = porcentaje)) +
+  geom_tile(color = "white", size = 1) +
+  geom_text(aes(label = paste0(porcentaje, "%")), 
+            size = 4, fontface = "bold") +
+  scale_fill_gradient(low = "white", high = "darkblue",
+                      name = "% que\ntransiciona") +
+  labs(title = "Matriz de transición laboral anual",
+       subtitle = "Porcentaje de trabajadores que pasan del estado inicial (fila) al final (columna)",
+       x = "Estado final (t+1)",
+       y = "Estado inicial (t)") +
+  theme_minimal() +
+  theme(plot.title = element_text(face = "bold"),
+        panel.grid = element_blank(),
+        axis.text = element_text(size = 11, face = "bold")) +
+  coord_fixed()
+```
+
+---
+
+# Análisis Caso 9: Matriz de transición
+
+### ✅ **Beneficios de la matriz de calor**:
+- **Todos los flujos visibles**: Completa información de transiciones
+- **Diagonal dominante**: Persistencia en estados
+- **Asimetrías evidentes**: Flujos no son bidireccionales
+
+### 📊 **Interpretación clave**:
+- **Diagonal**: Estabilidad (quedarse en mismo estado)
+- **Fila**: Destinos desde un origen (suma 100%)
+- **Columna**: Orígenes hacia un destino
+
+### ⚠️ **Limitación**:
+- Con muchos estados (>6) se vuelve difícil de leer
+- Alternativa: Diagrama de Sankey para flujos principales
+
+---
+
+class: inverse, center, middle
+
+# Bloque 4: Casos Especiales ArgenData
+## Casos 10-11
+
+---
+
+# Caso 10: Desigualdad - Curva de Lorenz
+
+### **Situación del analista**:
+> "El Observatorio Social necesita mostrar la evolución de la desigualdad del ingreso comparando 2019 vs 2024 con curvas de Lorenz."
+
+### **Datos disponibles**:
+- Distribución del ingreso por deciles
+- Dos períodos para comparar
+- Coeficiente de Gini calculado
+
+### **Pregunta clave**:
+¿Aumentó o disminuyó la desigualdad? ¿En qué parte de la distribución?
+
+---
+
+# Solución 10: Curva de Lorenz con área de Gini
+
+```{r caso10-lorenz, fig.height=5.5}
+# Simular datos de distribución del ingreso
+set.seed(789)
+
+# Crear distribuciones con diferente desigualdad
+crear_lorenz <- function(gini_deseado) {
+  # Aproximar distribución para lograr Gini deseado
+  x <- seq(0, 1, by = 0.1)
+  y <- x^(1 + gini_deseado * 2)  # Aproximación
+  y <- y / max(y)  # Normalizar
+  return(data.frame(percentil_pob = x * 100, percentil_ingreso = y * 100))
+}
+
+lorenz_2019 <- crear_lorenz(0.35) %>% mutate(año = "2019 (Gini = 0.42)")
+lorenz_2024 <- crear_lorenz(0.40) %>% mutate(año = "2024 (Gini = 0.45)")
+
+datos_lorenz <- rbind(lorenz_2019, lorenz_2024)
+
+# Gráfico
+ggplot(datos_lorenz, aes(x = percentil_pob, y = percentil_ingreso)) +
+  # Línea de perfecta igualdad
+  geom_segment(aes(x = 0, y = 0, xend = 100, yend = 100), 
+               linetype = "dashed", color = "gray50", size = 1) +
+  # Áreas de Gini
+  geom_ribbon(data = lorenz_2024, 
+              aes(ymin = percentil_ingreso, ymax = percentil_pob),
+              fill = "red", alpha = 0.2) +
+  # Curvas de Lorenz
+  geom_line(aes(color = año), size = 1.5) +
+  geom_point(aes(color = año), size = 2) +
+  scale_color_manual(values = c("2019 (Gini = 0.42)" = "darkgreen",
+                                "2024 (Gini = 0.45)" = "darkred")) +
+  labs(title = "Evolución de la desigualdad del ingreso: Curva de Lorenz",
+       subtitle = "Área entre la curva y la diagonal = desigualdad (Coeficiente de Gini)",
+       x = "Porcentaje acumulado de población",
+       y = "Porcentaje acumulado del ingreso",
+       color = "Período") +
+  theme_minimal() +
+  theme(plot.title = element_text(face = "bold"),
+        legend.position = "bottom") +
+  annotate("text", x = 20, y = 80, 
+           label = "Línea de\nperfecta\nigualdad", 
+           color = "gray50", fontface = "italic", size = 3) +
+  annotate("text", x = 60, y = 30,
+           label = "Mayor área =\nMayor desigualdad",
+           color = "darkred", fontface = "bold", size = 3.5)
+```
+
+---
+
+# Análisis Caso 10: Curva de Lorenz
+
+### ✅ **Beneficios**:
+- **Visualización completa de desigualdad**: Toda la distribución
+- **Comparación temporal**: Cambios en desigualdad evidentes
+- **Interpretación intuitiva**: Más curva = más desigualdad
+
+### 📐 **Elementos clave**:
+- **Diagonal**: Perfecta igualdad (todos tienen lo mismo)
+- **Área de Gini**: Entre curva y diagonal
+- **Punto (50%, y)**: Ingreso del 50% más pobre
+
+---
+
+# Caso 11: Pirámides poblacionales
+
+### **Situación del analista**:
+> "Recursos Humanos del sector público necesita proyectar jubilaciones. Mostrar la estructura etaria de empleados públicos por género y nivel educativo."
+
+### **Datos disponibles**:
+- Empleados por edad (grupos quinquenales), género y nivel educativo
+- Comparación con población general
+- Identificar "olas" de jubilación próximas
+
+### **Pregunta clave**:
+¿Cuándo habrá picos de jubilación? ¿Hay suficiente recambio joven?
+
+---
+
+# Solución 11: Pirámide poblacional con color por educación
+
+```{r caso11-piramide, fig.height=5.5}
+# Simular datos de estructura etaria
+set.seed(246)
+grupos_edad <- c("20-24", "25-29", "30-34", "35-39", "40-44", 
+                 "45-49", "50-54", "55-59", "60-64")
+
+# Crear estructura con "baby boom" en 45-54
+datos_piramide <- data.frame(
+  edad = rep(grupos_edad, 4),
+  genero = rep(c("Hombres", "Mujeres"), each = 18),
+  educacion = rep(rep(c("Secundario", "Universitario"), each = 9), 2),
+  cantidad = c(
+    # Hombres secundario
+    c(800, 900, 1000, 1100, 1300, 1500, 1400, 1000, 400),
+    # Hombres universitario  
+    c(600, 800, 900, 1000, 1100, 1200, 1100, 800, 300),
+    # Mujeres secundario
+    c(700, 850, 950, 1050, 1250, 1450, 1350, 950, 350),
+    # Mujeres universitario
+    c(700, 900, 1000, 1100, 1200, 1300, 1200, 900, 400)
+  )
+)
+
+# Hacer negativos los valores de hombres para pirámide
+datos_piramide <- datos_piramide %>%
+  mutate(cantidad = ifelse(genero == "Hombres", -cantidad, cantidad))
+
+# Pirámide
+ggplot(datos_piramide, aes(x = cantidad, y = edad, fill = educacion)) +
+  geom_col(position = "stack") +
+  geom_vline(xintercept = 0, color = "black", size = 0.5) +
+  scale_x_continuous(labels = function(x) abs(x),
+                     breaks = seq(-3000, 3000, 1000),
+                     limits = c(-3000, 3000)) +
+  scale_fill_manual(values = c("Secundario" = "#FDB863", 
+                               "Universitario" = "#5E4FA2"),
+                    name = "Nivel\neducativo") +
+  labs(title = "Pirámide de empleados públicos por edad y educación",
+       subtitle = "\"Baby boom\" visible en grupos 45-54 años → ola de jubilaciones próxima",
+       x = "Cantidad de empleados",
+       y = "Grupo etario") +
+  theme_minimal() +
+  theme(plot.title = element_text(face = "bold")) +
+  annotate("text", x = -1500, y = 9.3, label = "HOMBRES", 
+           fontface = "bold", size = 4) +
+  annotate("text", x = 1500, y = 9.3, label = "MUJERES", 
+           fontface = "bold", size = 4) +
+  annotate("segment", x = -2500, xend = -2500, y = 4.5, yend = 6.5,
+           arrow = arrow(type = "closed", length = unit(0.2, "cm")),
+           color = "red", size = 1) +
+  annotate("text", x = -2500, y = 3.8, 
+           label = "Jubilación\nmasiva en\n5-10 años", 
+           color = "red", fontface = "bold", size = 3)
+```
+
+---
+
+# Análisis Caso 11: Pirámides poblacionales
+
+### ✅ **Beneficios**:
+- **Estructura demográfica clara**: Composición por edad y género
+- **Capas adicionales**: Color para tercera variable (educación)
+- **Proyección intuitiva**: Futuras jubilaciones evidentes
+
+### 📊 **Usos en economía laboral**:
+- **Planificación de RRHH**: Anticipar necesidades de reemplazo
+- **Análisis de género**: Brechas en diferentes edades
+- **Políticas públicas**: Impacto de jubilaciones en presupuesto
+
+### 🎨 **Variantes**:
+- Comparar dos poblaciones (superpuestas)
+- Agregar proyecciones futuras
+- Mostrar flujos de entrada/salida
+
+---
+
+class: inverse, center, middle
+
+---
+# Gráficos Avanzados: Scatterplot (exceso)
+
+### **Caso: Relación salario-productividad por sector y tamaño de empresa**
+
+```{r scatter-tendencias, fig.height=6}
+# Cargar librerías necesarias
+
+
+# Simular datos complejos
+set.seed(123)
+n_empresas <- 500
+
+datos_empresas <- data.frame(
+  empresa_id = 1:n_empresas,
+  sector = sample(c("Tecnología", "Industria", "Comercio", "Servicios", "Finanzas"), 
+                  n_empresas, replace = TRUE, prob = c(0.15, 0.25, 0.3, 0.2, 0.1)),
+  tamaño = sample(c("Pequeña", "Mediana", "Grande"), 
+                  n_empresas, replace = TRUE, prob = c(0.5, 0.35, 0.15)),
+  productividad = rnorm(n_empresas, 100, 25),
+  salario_medio = rnorm(n_empresas, 80, 20)
+)
+
+# Ajustar valores por sector y tamaño
+datos_empresas <- datos_empresas %>%
+  mutate(
+    productividad = case_when(
+      sector == "Tecnología" ~ productividad * 1.4,
+      sector == "Finanzas" ~ productividad * 1.3,
+      sector == "Industria" ~ productividad * 1.1,
+      TRUE ~ productividad
+    ),
+    salario_medio = case_when(
+      tamaño == "Grande" ~ salario_medio * 1.3,
+      tamaño == "Mediana" ~ salario_medio * 1.1,
+      TRUE ~ salario_medio
+    ),
+    # Crear relación positiva entre productividad y salario
+    salario_medio = salario_medio + productividad * 0.3 + rnorm(n_empresas, 0, 10)
+  )
+
+# Calcular centros por sector para etiquetas
+centros_sector <- datos_empresas %>%
+  group_by(sector) %>%
+  summarise(
+    prod_media = mean(productividad),
+    sal_medio = mean(salario_medio)
+  )
+
+# Gráfico complejo con múltiples capas
+ggplot(datos_empresas, aes(x = productividad, y = salario_medio)) +
+  # Densidad 2D de fondo
+  stat_density_2d(aes(fill = ..level..), geom = "polygon", alpha = 0.1, show.legend = FALSE) +
+  # Puntos coloreados por sector y forma por tamaño
+  geom_point(aes(color = sector, shape = tamaño, size = tamaño), alpha = 0.6) +
+  # Tendencias por sector
+  geom_smooth(aes(color = sector, group = sector), method = "lm", se = TRUE, alpha = 0.2, size = 0.8) +
+  # Tendencia general
+  geom_smooth(method = "lm", color = "black", linetype = "dashed", size = 1.2, se = FALSE) +
+  # Etiquetas de sectores
+  geom_label_repel(data = centros_sector,
+                    aes(x = prod_media, y = sal_medio, label = sector),
+                    size = 3, alpha = 0.8, fontface = "bold") +
+  # Escalas y etiquetas
+  scale_color_manual(values = c("Tecnología" = "#E74C3C", "Industria" = "#3498DB",
+                                "Comercio" = "#2ECC71", "Servicios" = "#F39C12",
+                                "Finanzas" = "#9B59B6")) +
+  scale_shape_manual(values = c("Pequeña" = 16, "Mediana" = 17, "Grande" = 15)) +
+  scale_size_manual(values = c("Pequeña" = 2, "Mediana" = 3, "Grande" = 4)) +
+  scale_x_continuous(labels = dollar_format(prefix = "$", suffix = "K")) +
+  scale_y_continuous(labels = dollar_format(prefix = "$", suffix = "K")) +
+  labs(title = "Relación Productividad-Salario: Análisis multidimensional",
+       subtitle = "500 empresas | Líneas = tendencias por sector | Línea negra punteada = tendencia general",
+       x = "Productividad (VAB por trabajador)",
+       y = "Salario medio mensual",
+       color = "Sector",
+       shape = "Tamaño empresa",
+       size = "Tamaño empresa") +
+  theme_minimal() +
+  theme(plot.title = element_text(face = "bold", size = 14),
+        legend.position = "right",
+        panel.grid.minor = element_blank()) +
+  # Anotaciones
+  annotate("text", x = 60, y = 140, 
+           label = "Correlación general:\nr = 0.68***", 
+           fontface = "italic", size = 3.5, color = "black") +
+  coord_cartesian(xlim = c(40, 200), ylim = c(40, 160))
+```
+
+---
+
+# Gráficos Avanzados: Facetado  
+
+### **Caso: Evolución del mercado laboral por región y género**
+
+```{r facet-complejo, fig.height=6.5}
+# Simular datos panel para facetado
+set.seed(456)
+
+# Crear datos de panel: regiones x género x tiempo x indicador
+años <- 2015:2024
+regiones <- c("AMBA", "Pampeana", "NOA", "NEA", "Cuyo", "Patagonia")
+generos <- c("Mujeres", "Hombres")
+
+datos_panel <- expand.grid(
+  año = años,
+  region = regiones,
+  genero = generos
+)
+
+# Simular indicadores con patrones realistas
+datos_panel <- datos_panel %>%
+  group_by(region, genero) %>%
+  mutate(
+    # Tasa de empleo con tendencias diferentes
+    tasa_empleo = case_when(
+      region == "AMBA" & genero == "Mujeres" ~ 40 + (año - 2015) * 0.8 + rnorm(n(), 0, 1),
+      region == "AMBA" & genero == "Hombres" ~ 55 + (año - 2015) * 0.3 + rnorm(n(), 0, 1),
+      region == "Patagonia" & genero == "Mujeres" ~ 38 + (año - 2015) * 0.5 + rnorm(n(), 0, 1.5),
+      region == "Patagonia" & genero == "Hombres" ~ 58 + (año - 2015) * 0.2 + rnorm(n(), 0, 1.5),
+      genero == "Mujeres" ~ 35 + (año - 2015) * 0.6 + rnorm(n(), 0, 2),
+      TRUE ~ 52 + (año - 2015) * 0.4 + rnorm(n(), 0, 2)
+    ),
+    # Informalidad
+    informalidad = case_when(
+      region %in% c("NOA", "NEA") ~ 45 - (año - 2015) * 0.8 + rnorm(n(), 0, 2),
+      region == "AMBA" ~ 30 - (año - 2015) * 0.5 + rnorm(n(), 0, 1.5),
+      TRUE ~ 35 - (año - 2015) * 0.6 + rnorm(n(), 0, 2)
+    )
+  ) %>%
+  ungroup()
+
+# Calcular brecha de género
+brecha_genero <- datos_panel %>%
+  select(-informalidad) %>%
+  pivot_wider(names_from = genero, values_from = tasa_empleo) %>%
+  mutate(brecha = Hombres - Mujeres) %>%
+  select(año, region, brecha)
+
+# Unir datos
+datos_panel <- datos_panel %>%
+  left_join(brecha_genero, by = c("año", "region"))
+
+# Gráfico facetado complejo
+ggplot(datos_panel, aes(x = año)) +
+  # Área de brecha de género (fondo)
+  geom_ribbon(data = filter(datos_panel, genero == "Mujeres"),
+              aes(ymin = 0, ymax = brecha), 
+              fill = "gray90", alpha = 0.5) +
+  # Líneas de tasa de empleo
+  geom_line(aes(y = tasa_empleo, color = genero), size = 1.2) +
+  # Puntos en años específicos
+  geom_point(data = filter(datos_panel, año %in% c(2015, 2020, 2024)),
+             aes(y = tasa_empleo, color = genero), size = 2) +
+  # Línea de informalidad (secundaria)
+  geom_line(aes(y = informalidad), color = "darkred", linetype = "dashed", 
+            alpha = 0.6, size = 0.8) +
+  # Evento pandemia
+  geom_vline(xintercept = 2020, linetype = "dotted", alpha = 0.5) +
+  # Facetas por región
+  facet_wrap(~region, ncol = 3, scales = "free_y") +
+  # Escalas y etiquetas
+  scale_color_manual(values = c("Mujeres" = "#E91E63", "Hombres" = "#2196F3")) +
+  scale_x_continuous(breaks = c(2015, 2018, 2021, 2024)) +
+  labs(title = "Evolución del mercado laboral por región: Análisis multidimensional",
+       subtitle = "Líneas sólidas = tasa de empleo | Línea punteada roja = informalidad | Área gris = brecha de género",
+       x = NULL,
+       y = "Tasa (%)",
+       color = "Género",
+       caption = "Línea vertical punteada = inicio pandemia (2020)") +
+  theme_minimal() +
+  theme(plot.title = element_text(face = "bold", size = 14),
+        strip.text = element_text(face = "bold", size = 10),
+        legend.position = "bottom",
+        panel.grid.minor = element_blank())
+  
+```
+
+---
+
+# Gráficos Avanzados: PCA + clusters 
+
+### **Caso: Segmentación del mercado laboral por características múltiples**
+
+```{r pca-clusters, fig.height=6}
+library(ggforce)  # Para elipses
+
+# Simular datos multidimensionales
+set.seed(789)
+n_sectores <- 50
+
+datos_pca <- data.frame(
+  sector_id = paste0("S", 1:n_sectores),
+  salario_medio = rnorm(n_sectores, 100, 30),
+  productividad = rnorm(n_sectores, 100, 25),
+  tasa_formalidad = runif(n_sectores, 40, 95),
+  edad_media = rnorm(n_sectores, 38, 8),
+  pct_mujeres = runif(n_sectores, 20, 60),
+  educacion_años = rnorm(n_sectores, 12, 3),
+  rotacion_anual = runif(n_sectores, 5, 40),
+  tamaño_medio_empresa = rexp(n_sectores, 1/50)
+)
+
+# Realizar PCA (simulado para el ejemplo)
+# En realidad usarías prcomp(), aquí simulo las componentes
+datos_pca <- datos_pca %>%
+  mutate(
+    PC1 = scale(salario_medio) * 0.4 + scale(productividad) * 0.35 + 
+           scale(educacion_años) * 0.3 + rnorm(n_sectores, 0, 0.3),
+    PC2 = scale(tasa_formalidad) * 0.5 - scale(rotacion_anual) * 0.4 + 
+           scale(tamaño_medio_empresa) * 0.3 + rnorm(n_sectores, 0, 0.3),
+    # Clusters basados en características
+    cluster = case_when(
+      PC1 > 0.5 & PC2 > 0.5 ~ "Alto valor - Estable",
+      PC1 > 0.5 & PC2 <= 0.5 ~ "Alto valor - Volátil",
+      PC1 <= 0.5 & PC2 > 0.5 ~ "Tradicional - Estable",
+      TRUE ~ "Precario"
+    )
+  )
+
+# Identificar sectores extremos para etiquetar
+sectores_extremos <- datos_pca %>%
+  group_by(cluster) %>%
+  slice_max(order_by = abs(PC1) + abs(PC2), n = 2) %>%
+  ungroup()
+
+# Gráfico PCA con clusters
+ggplot(datos_pca, aes(x = PC1, y = PC2)) +
+  # Elipses de confianza por cluster
+  stat_ellipse(aes(color = cluster), type = "norm", level = 0.9, 
+               linetype = "dashed", size = 0.8) +
+  # Densidad hexagonal de fondo
+  geom_hex(bins = 15, alpha = 0.3) +
+  # Puntos coloreados por cluster
+  geom_point(aes(color = cluster, size = salario_medio), alpha = 0.7) +
+  # Vectores de variables (loadings simulados)
+  geom_segment(data = data.frame(
+    var = c("Salario", "Productividad", "Formalidad", "Educación"),
+    x = c(0, 0, 0, 0),
+    y = c(0, 0, 0, 0),
+    xend = c(2, 1.8, 0.5, 1.5),
+    yend = c(0.3, 0.5, 2, 0.8)
+  ), aes(x = x, y = y, xend = xend, yend = yend),
+  arrow = arrow(length = unit(0.3, "cm")), 
+  color = "darkred", alpha = 0.7, size = 1) +
+  # Etiquetas de vectores
+  geom_text(data = data.frame(
+    var = c("Salario", "Productividad", "Formalidad", "Educación"),
+    x = c(2.1, 1.9, 0.6, 1.6),
+    y = c(0.4, 0.6, 2.1, 0.9)
+  ), aes(x = x, y = y, label = var),
+  color = "darkred", fontface = "bold", size = 3.5) +
+  # Etiquetas de sectores extremos
+  geom_label_repel(data = sectores_extremos,
+                    aes(label = sector_id),
+                    size = 2.5, alpha = 0.8) +
+  # Configuración de escalas
+  scale_color_manual(values = c("Alto valor - Estable" = "#27AE60",
+                                "Alto valor - Volátil" = "#F39C12",
+                                "Tradicional - Estable" = "#3498DB",
+                                "Precario" = "#E74C3C")) +
+  scale_size_continuous(range = c(2, 8), name = "Salario\nmedio") +
+  scale_fill_viridis_c(option = "magma", name = "Densidad") +
+  # Líneas de referencia
+  geom_hline(yintercept = 0, linetype = "dotted", alpha = 0.3) +
+  geom_vline(xintercept = 0, linetype = "dotted", alpha = 0.3) +
+  # Etiquetas
+  labs(title = "Segmentación del mercado laboral: Análisis de Componentes Principales",
+       subtitle = "PC1 (35% var): Calidad del empleo | PC2 (28% var): Estabilidad | Vectores = contribución de variables",
+       x = "Componente Principal 1: Calidad del empleo",
+       y = "Componente Principal 2: Estabilidad",
+       color = "Segmento",
+       caption = "n = 50 sectores | Elipses = 90% confianza | Hexágonos = densidad de sectores") +
+  theme_minimal() +
+  theme(plot.title = element_text(face = "bold", size = 14),
+        legend.position = "right",
+        panel.grid.minor = element_blank()) +
+  coord_fixed() +
+  # Anotaciones de cuadrantes
+  annotate("text", x = 2, y = 2.5, label = "MEJOR/ESCENARIO", 
+           fontface = "bold", color = "#27AE60", size = 4) +
+  annotate("text", x = -2, y = -2.5, label = "PEOR/ESCENARIO", 
+           fontface = "bold", color = "#E74C3C", size = 4)
+```
+
+---
+
+# Dashboard: Panel integral del mercado laboral
+
+```{r dashboard-corregido, fig.height=8, fig.width=14}
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(scales)
+library(patchwork)
+library(gridExtra)
+
+# Configurar tema consistente
+theme_dashboard <- theme_minimal() +
+  theme(
+    plot.title = element_text(face = "bold", size = 10),
+    plot.subtitle = element_text(size = 8),
+    axis.text = element_text(size = 7),
+    axis.title = element_text(size = 8),
+    legend.text = element_text(size = 7),
+    legend.title = element_text(size = 8)
+  )
+
+# 1. KPIs principales (versión mejorada)
+kpi_data <- data.frame(
+  metric = c("Tasa de\nEmpleo", "Tasa de\nDesempleo", "Salario\nMediano", "Informalidad"),
+  value = c("42.8%", "7.2%", "$95.4K", "32.5%"),
+  change = c("+0.8", "-0.3", "+12.5%", "-2.1"),
+  trend = c("↑", "↓", "↑", "↓"),
+  color = c("good", "good", "good", "good")
+)
+
+p_kpis <- ggplot(kpi_data, aes(x = 1, y = 1)) +
+  geom_rect(aes(xmin = 0.5, xmax = 1.5, ymin = 0.5, ymax = 1.5),
+            fill = "gray95", color = "gray80") +
+  geom_text(aes(y = 1.2, label = metric), size = 3, fontface = "bold") +
+  geom_text(aes(label = value), size = 5, fontface = "bold", color = "black") +
+  geom_text(aes(y = 0.8, label = paste(trend, change)), 
+            size = 3, color = "#27AE60") +
+  facet_wrap(~metric, ncol = 4) +
+  theme_void() +
+  theme(
+    strip.text = element_blank(),
+    panel.spacing = unit(0.5, "lines"),
+    plot.margin = margin(5, 5, 5, 5)
+  ) +
+  labs(title = "INDICADORES CLAVE - Q4 2024") +
+  theme(plot.title = element_text(face = "bold", size = 12, hjust = 0.5))
+
+# 2. Serie temporal principal - Evolución del empleo
+set.seed(123)
+datos_serie <- data.frame(
+  fecha = rep(seq(as.Date("2020-01-01"), as.Date("2024-12-01"), by = "quarter"), 3),
+  tipo = rep(c("Formal", "Informal", "Desempleo"), each = 20),
+  valor = c(
+    42 + cumsum(rnorm(20, 0.15, 0.3)),
+    35 - cumsum(rnorm(20, 0.08, 0.25)),
+    8 + sin(seq(0, 4*pi, length.out = 20)) * 2 + rnorm(20, 0, 0.3)
+  )
+)
+
+p_serie <- ggplot(datos_serie, aes(x = fecha, y = valor, color = tipo)) +
+  geom_line(size = 1) +
+  geom_point(data = filter(datos_serie, fecha == max(fecha)), size = 2.5) +
+  scale_color_manual(values = c("Formal" = "#2E86AB", 
+                                "Informal" = "#F18F01",
+                                "Desempleo" = "#C73E1D")) +
+  scale_x_date(date_labels = "%Y", date_breaks = "1 year") +
+  labs(title = "Evolución del empleo por tipo", 
+       subtitle = "% de la PEA | 2020-2024",
+       x = NULL, y = "Porcentaje (%)", color = NULL) +
+  theme_dashboard +
+  theme(legend.position = "top")
+
+# 3. Heatmap regional mejorado
+datos_regional <- expand.grid(
+  region = c("AMBA", "Pampeana", "NOA", "NEA", "Cuyo", "Patagonia"),
+  indicador = c("Empleo", "Salario", "Formal.", "Product.")
+)
+set.seed(456)
+datos_regional$valor <- c(
+  # Valores más realistas por región
+  c(5.2, 12.3, 78, 125),    # AMBA
+  c(4.8, 8.5, 72, 110),      # Pampeana
+  c(2.1, -3.2, 45, 65),      # NOA
+  c(1.5, -2.8, 42, 60),      # NEA
+  c(3.2, 5.6, 65, 95),       # Cuyo
+  c(6.8, 15.2, 82, 145)      # Patagonia
+)
+
+p_regional <- ggplot(datos_regional, aes(x = indicador, y = region, fill = valor)) +
+  geom_tile(color = "white", size = 0.5) +
+  geom_text(aes(label = sprintf("%.1f", valor)), size = 3) +
+  scale_fill_gradient2(
+    low = "#E74C3C", mid = "white", high = "#27AE60",
+    midpoint = 50, 
+    breaks = c(0, 50, 100),
+    limits = c(-10, 150),
+    name = "Valor"
+  ) +
+  labs(title = "Indicadores por región", 
+       subtitle = "Valores absolutos",
+       x = NULL, y = NULL) +
+  theme_dashboard +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    legend.position = "right",
+    legend.key.height = unit(0.8, "cm")
+  )
+
+# 4. Distribución salarial
+set.seed(789)
+datos_salarios <- data.frame(
+  salario = c(rlnorm(2000, log(60000), 0.4),
+              rlnorm(1000, log(110000), 0.25))
+)
+
+p_salarios <- ggplot(datos_salarios, aes(x = salario/1000)) +
+  geom_histogram(aes(y = ..density..), bins = 30, 
+                 fill = "#3498DB", alpha = 0.7, color = "white") +
+  geom_density(color = "#2874A6", size = 1) +
+  geom_vline(xintercept = median(datos_salarios$salario/1000), 
+             color = "#E74C3C", linetype = "dashed", size = 1) +
+  geom_vline(xintercept = mean(datos_salarios$salario/1000), 
+             color = "#F39C12", linetype = "dashed", size = 1) +
+  scale_x_continuous(
+    labels = dollar_format(prefix = "$", suffix = "K"),
+    limits = c(0, 250),
+    breaks = seq(0, 250, 50)
+  ) +
+  labs(title = "Distribución salarial actual", 
+       subtitle = "Rojo = mediana | Naranja = media",
+       x = "Salario mensual", 
+       y = "Densidad") +
+  theme_dashboard
+
+# 5. Matriz de transición simplificada
+datos_transicion <- data.frame(
+  origen = factor(rep(c("Formal", "Informal", "Desempleo"), each = 3),
+                  levels = c("Formal", "Informal", "Desempleo")),
+  destino = factor(rep(c("Formal", "Informal", "Desempleo"), 3),
+                   levels = c("Formal", "Informal", "Desempleo")),
+  valor = c(85, 10, 5,    # Desde Formal
+           25, 65, 10,     # Desde Informal
+           30, 40, 30)     # Desde Desempleo
+)
+
+p_transicion <- ggplot(datos_transicion, aes(x = destino, y = origen, fill = valor)) +
+  geom_tile(color = "white", size = 1) +
+  geom_text(aes(label = paste0(valor, "%")), size = 3.5, fontface = "bold") +
+  scale_fill_gradient(
+    low = "#ECF0F1", high = "#2C3E50",
+    name = "%",
+    guide = "none"
+  ) +
+  labs(title = "Matriz de transición trimestral",
+       subtitle = "% que transita entre estados",
+       x = "Estado destino →", 
+       y = "Estado origen →") +
+  theme_dashboard +
+  theme(
+    panel.grid = element_blank(),
+    axis.text = element_text(face = "bold")
+  ) +
+  coord_fixed()
+
+# 6. Brecha de género mejorada
+datos_brecha <- data.frame(
+  edad = factor(c("18-24", "25-34", "35-44", "45-54", "55+"),
+                levels = c("18-24", "25-34", "35-44", "45-54", "55+")),
+  empleo = c(5, 12, 18, 15, 10),
+  salario = c(8, 15, 22, 25, 20)
+) %>%
+  pivot_longer(cols = c(empleo, salario), 
+               names_to = "tipo", 
+               values_to = "brecha")
+
+p_brecha <- ggplot(datos_brecha, aes(x = edad, y = brecha, fill = tipo)) +
+  geom_col(position = "dodge", alpha = 0.8, width = 0.7) +
+  geom_text(aes(label = paste0(brecha, "%")), 
+            position = position_dodge(width = 0.7),
+            vjust = -0.5, size = 3) +
+  scale_fill_manual(
+    values = c("empleo" = "#3498DB", "salario" = "#E74C3C"),
+    labels = c("Tasa de empleo", "Salario"),
+    name = NULL
+  ) +
+  scale_y_continuous(limits = c(0, 30)) +
+  labs(title = "Brecha de género por edad", 
+       subtitle = "Diferencia % hombres vs mujeres",
+       x = "Grupo etario", 
+       y = "Brecha (%)") +
+  theme_dashboard +
+  theme(legend.position = "top")
+
+# 7. Top/Bottom sectores por productividad
+datos_sectores <- data.frame(
+  sector = c("Software", "Finanzas", "Minería", "Telecom", "Energía",
+             "Textil", "Comercio", "Turismo", "Transporte", "Agro"),
+  productividad = c(185, 172, 165, 158, 152, 58, 55, 48, 45, 42),
+  tipo = c(rep("Top 5", 5), rep("Bottom 5", 5))
+)
+
+p_sectores <- ggplot(datos_sectores, 
+                     aes(x = reorder(sector, productividad), 
+                         y = productividad, 
+                         fill = tipo)) +
+  geom_col(alpha = 0.8) +
+  geom_text(aes(label = paste0("$", productividad, "K")), 
+            hjust = -0.1, size = 3) +
+  coord_flip() +
+  scale_fill_manual(values = c("Top 5" = "#27AE60", 
+                               "Bottom 5" = "#E74C3C"),
+                    guide = "none") +
+  scale_y_continuous(limits = c(0, 200)) +
+  labs(title = "Productividad por sector",
+       subtitle = "VAB por trabajador (miles $)",
+       x = NULL, 
+       y = NULL) +
+  theme_dashboard +
+  theme(axis.text.x = element_blank(),
+        panel.grid.major.y = element_blank())
+
+# 8. Tendencia de informalidad por sector
+set.seed(321)
+datos_informal <- expand.grid(
+  año = 2020:2024,
+  sector = c("Construcción", "Comercio", "Servicios", "Industria")
+) %>%
+  mutate(
+    informalidad = case_when(
+      sector == "Construcción" ~ 65 - (año - 2020) * 2 + rnorm(5, 0, 2),
+      sector == "Comercio" ~ 45 - (año - 2020) * 1.5 + rnorm(5, 0, 1.5),
+      sector == "Servicios" ~ 40 - (año - 2020) * 1 + rnorm(5, 0, 1),
+      TRUE ~ 30 - (año - 2020) * 0.8 + rnorm(5, 0, 1)
+    )
+  )
+
+p_informal <- ggplot(datos_informal, aes(x = año, y = informalidad, color = sector)) +
+  geom_line(size = 1) +
+  geom_point(size = 2) +
+  scale_color_manual(values = c("Construcción" = "#E74C3C",
+                                "Comercio" = "#F39C12", 
+                                "Servicios" = "#3498DB",
+                                "Industria" = "#27AE60")) +
+  scale_x_continuous(breaks = 2020:2024) +
+  labs(title = "Evolución de la informalidad",
+       subtitle = "% de trabajadores informales",
+       x = NULL, 
+       y = "Informalidad (%)",
+       color = NULL) +
+  theme_dashboard +
+  theme(legend.position = "top")
+
+# COMPOSICIÓN FINAL DEL DASHBOARD
+# Primera fila: KPIs
+# Segunda fila: Serie principal y mapa regional
+# Tercera fila: 3 gráficos medianos
+# Cuarta fila: 3 gráficos medianos
+
+dashboard_final <- 
+  p_kpis /
+  (p_serie | p_regional) /
+  (p_salarios | p_transicion | p_brecha) /
+  (p_sectores | p_informal | plot_spacer()) +
+  plot_layout(heights = c(1, 3, 2.5, 2.5)) +
+  plot_annotation(
+    title = "DASHBOARD MERCADO LABORAL - Q4 2024",
+    subtitle = "Sistema integral de monitoreo del empleo",
+    caption = "Fuente: EPH-INDEC | Procesamiento: Observatorio Laboral | Diciembre 2024",
+    theme = theme(
+      plot.title = element_text(size = 16, face = "bold", hjust = 0.5),
+      plot.subtitle = element_text(size = 12, hjust = 0.5, color = "gray40"),
+      plot.caption = element_text(size = 8, face = "italic", color = "gray50"),
+      plot.background = element_rect(fill = "white", color = NA),
+      plot.margin = margin(10, 10, 10, 10)
+    )
+  )
+
+dashboard_final
+```
+
+---
+
+# Dashboard Alternativo: Vista sectorial comparativa
+
+```{r dashboard-sectorial, fig.height=7, fig.width=12}
+# Dashboard enfocado en comparación sectorial
+
+# 1. Radar chart de características sectoriales
+library(ggradar)  # Si no está disponible, simular con geom_polygon
+
+# Datos para radar (normalizado 0-1)
+datos_radar <- data.frame(
+  sector = c("Tecnología", "Industria", "Comercio", "Público"),
+  Salario = c(0.9, 0.6, 0.4, 0.5),
+  Formalidad = c(0.95, 0.8, 0.5, 0.9),
+  Productividad = c(0.95, 0.7, 0.4, 0.3),
+  Crecimiento = c(0.8, 0.5, 0.6, 0.3),
+  Estabilidad = c(0.7, 0.6, 0.4, 0.9),
+  Educación = c(0.9, 0.5, 0.3, 0.6)
+)
+
+# Convertir a formato largo para polygon
+datos_radar_long <- datos_radar %>%
+  pivot_longer(cols = -sector, names_to = "variable", values_to = "valor") %>%
+  group_by(sector) %>%
+  mutate(angulo = seq(0, 2*pi - 2*pi/6, length.out = 6),
+         x = valor * cos(angulo),
+         y = valor * sin(angulo))
+
+p_radar <- ggplot(datos_radar_long, aes(x = x, y = y, group = sector, color = sector)) +
+  geom_polygon(fill = NA, size = 1.2, alpha = 0.7) +
+  geom_point(size = 2) +
+  coord_fixed() +
+  theme_void() +
+  labs(title = "Perfil sectorial multidimensional") +
+  theme(plot.title = element_text(face = "bold", size = 11, hjust = 0.5),
+        legend.position = "bottom")
+
+# 2. Evolución empleo sectorial (small multiples)
+datos_evol_sector <- expand.grid(
+  año = 2019:2024,
+  sector = c("Tecnología", "Industria", "Comercio", "Público", "Construcción", "Agro")
+) %>%
+  mutate(empleo = 100 + rnorm(36, 5, 10) * (año - 2019))
+
+p_small <- ggplot(datos_evol_sector, aes(x = año, y = empleo)) +
+  geom_area(fill = "steelblue", alpha = 0.5) +
+  geom_line(color = "darkblue", size = 1) +
+  facet_wrap(~sector, ncol = 3, scales = "free_y") +
+  scale_x_continuous(breaks = c(2019, 2021, 2024)) +
+  labs(title = "Evolución del empleo por sector",
+       x = NULL, y = "Índice") +
+  theme_minimal() +
+  theme(plot.title = element_text(face = "bold", size = 11),
+        strip.text = element_text(face = "bold", size = 9))
+
+# 3. Matriz de correlación de indicadores
+set.seed(123)
+indicadores <- c("Empleo", "Salario", "Product.", "Formal.", "Educac.")
+cor_matrix <- matrix(runif(25, -0.5, 1), 5, 5)
+cor_matrix[lower.tri(cor_matrix)] <- t(cor_matrix)[lower.tri(cor_matrix)]
+diag(cor_matrix) <- 1
+
+datos_cor <- expand.grid(var1 = indicadores, var2 = indicadores)
+datos_cor$correlacion <- as.vector(cor_matrix)
+
+p_cor <- ggplot(datos_cor, aes(x = var1, y = var2, fill = correlacion)) +
+  geom_tile(color = "white") +
+  geom_text(aes(label = sprintf("%.2f", correlacion)), size = 3) +
+  scale_fill_gradient2(low = "darkred", mid = "white", high = "darkgreen",
+                       midpoint = 0, limits = c(-1, 1)) +
+  labs(title = "Correlaciones entre indicadores",
+       x = NULL, y = NULL) +
+  theme_minimal() +
+  theme(plot.title = element_text(face = "bold", size = 11),
+        axis.text.x = element_text(angle = 45, hjust = 1))
+
+# 4. Proyección de demanda laboral
+datos_proyeccion <- data.frame(
+  trimestre = seq(as.Date("2024-01-01"), as.Date("2026-12-01"), by = "quarter"),
+  demanda = 100 + cumsum(rnorm(12, 1, 2)),
+  lower = NA,
+  upper = NA
+)
+datos_proyeccion$lower <- datos_proyeccion$demanda - seq(2, 10, length.out = 12)
+datos_proyeccion$upper <- datos_proyeccion$demanda + seq(2, 10, length.out = 12)
+
+p_proj <- ggplot(datos_proyeccion, aes(x = trimestre)) +
+  geom_ribbon(aes(ymin = lower, ymax = upper), fill = "gray80", alpha = 0.5) +
+  geom_line(aes(y = demanda), color = "darkblue", size = 1.2) +
+  geom_vline(xintercept = as.Date("2024-12-31"), linetype = "dashed", alpha = 0.5) +
+  labs(title = "Proyección demanda laboral",
+       subtitle = "Banda = IC 95%",
+       x = NULL, y = "Índice") +
+  theme_minimal() +
+  theme(plot.title = element_text(face = "bold", size = 11))
+
+# Composición dashboard sectorial
+(p_small | p_radar) / (p_cor | p_proj) +
+  plot_annotation(
+    title = "ANÁLISIS SECTORIAL DEL MERCADO LABORAL",
+    subtitle = "Comparación multidimensional y proyecciones",
+    theme = theme(
+      plot.title = element_text(size = 16, face = "bold", hjust = 0.5),
+      plot.subtitle = element_text(size = 12, hjust = 0.5)
+    )
+  )
+```
+
+---
+
+# Notas sobre los gráficos complejos
+
+### **Elementos avanzados utilizados**:
+
+#### **Scatterplot con tendencias múltiples**:
+- Regresiones por grupo con intervalos de confianza
+- Densidad 2D de fondo
+- Múltiples estéticas (color, forma, tamaño)
+- Etiquetas inteligentes con `ggrepel`
+
+#### **Facetado complejo**:
+- Múltiples geometrías superpuestas
+- Escalas libres por panel
+- Datos secundarios (ribbons, líneas punteadas)
+- Anotaciones específicas por faceta
+
+---
+
+# Notas sobre los gráficos complejos
+
+### **Elementos avanzados utilizados**:
+
+#### **PCA con clusters**:
+- Visualización de alta dimensionalidad
+- Elipses de confianza
+- Vectores de loadings
+- Densidad hexagonal
+
+#### **Dashboards mejorados**:
+- Menos scorecards, más visualizaciones
+- Variedad de tipos de gráficos
+- Composición con `patchwork`
+- Información complementaria sin redundancia
+
+---
+
+# Checklist final: Buenas visualizaciones
+
+### ✅ **Antes de presentar cualquier gráfico**:
+
+1. ☐ **¿El tipo de gráfico es apropiado para los datos?**
+2. ☐ **¿La escala es honesta y no engañosa?**
+3. ☐ **¿Los colores son accesibles (no rojo-verde)?**
+4. ☐ **¿Hay contexto suficiente (título, subtítulo, fuente)?**
+5. ☐ **¿Las etiquetas son legibles?**
+6. ☐ **¿Se entiende el mensaje principal en 5 segundos?**
+7. ☐ **¿Evité el chart junk innecesario?**
+
+### 🎯 **Regla de oro**:
+> "La mejor visualización es la que comunica el mensaje correcto a la audiencia correcta en el momento correcto"
+
+---
