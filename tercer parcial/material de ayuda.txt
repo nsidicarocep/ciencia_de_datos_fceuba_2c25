@@ -1,6 +1,6 @@
 Videos sobre Data Viz: 
-1) https://www.youtube.com/watch?v=SnCi0s0e4Io 
-2) https://www.youtube.com/watch?v=rBp3eYHrsfo 
+1) https://www.youtube.com/watch?v=SnCi0s0e4Io -> GIF 
+2) https://www.youtube.com/watch?v=rBp3eYHrsfo -> Graficos interactivos 
 3) https://www.youtube.com/watch?v=qnw1xDnt_Ec -> este es el que puede servir para el TP 
 
 Códigos con algunas cosas de estilo interesante: 
@@ -26,6 +26,7 @@ Datacamp sugerencias:
 
 Ejemplos de visualizacion de datos: 
 https://community.storytellingwithdata.com/challenges (recorrer sitio y sacar ideas)
+https://community.storytellingwithdata.com/challenges/nov-2024-make-a-good-graph
 
 Grafico lindo de series de tiempo: 
 https://cdn.vev.design/cdn-cgi/image/f=auto,q=82/private/F5oY9xDoGodNLVtMTdVGd8LPt602/image/LNbQ0VLLOD.png 
