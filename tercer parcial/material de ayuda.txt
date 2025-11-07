@@ -1,0 +1,35 @@
+Videos sobre Data Viz: 
+1) https://www.youtube.com/watch?v=SnCi0s0e4Io 
+2) https://www.youtube.com/watch?v=rBp3eYHrsfo 
+3) https://www.youtube.com/watch?v=qnw1xDnt_Ec -> este es el que puede servir para el TP 
+
+Códigos con algunas cosas de estilo interesante: 
+1) https://malucalle.github.io/statistical-pills/nice-plots-with-r.html 
+2) https://www.cedricscherer.com/2019/08/05/a-ggplot2-tutorial-for-beautiful-plotting-in-r/ -> Recomiendo 
+3) https://www.kaggle.com/code/shisliu/beautiful-viz-data-storytelling-r-ggplot2 -> Recomiendo 
+4) https://medium.com/analytics-vidhya/storytelling-with-your-graphs-in-r-using-ggplot2-f9133c5cc457 
+
+Patchwork (poner varios gráficos juntos)
+https://patchwork.data-imaginist.com/articles/patchwork.html 
+
+Storytelling with Data:  
+Libro: https://luutruvn.com/wp-content/uploads/2025/03/Storytelling-with-Data_-A-Data-Visualization-Guide-for-Business-Professionals-PDFDrive-.pdf 
+Códigos de los gráficos del libro en R: https://github.com/adamribaudo/storytelling-with-data-ggplot/tree/master 
+
+Gráficos tipo BBC:
+1) https://bbc.github.io/rcookbook/#make_a_grouped_bar_chart 
+2) https://medium.com/bbc-visual-and-data-journalism/how-the-bbc-visual-and-data-journalism-team-works-with-graphics-in-r-ed0b35693535 
+
+Datacamp sugerencias: 
+1) https://www.datacamp.com/cheat-sheet/data-viz-cheat-sheet 
+2) https://media.datacamp.com/legacy/image/upload/v1662633286/Marketing/Blog/Data_Storytelling_Cheat_Sheet.pdf 
+
+Ejemplos de visualizacion de datos: 
+https://community.storytellingwithdata.com/challenges (recorrer sitio y sacar ideas)
+
+Grafico lindo de series de tiempo: 
+https://cdn.vev.design/cdn-cgi/image/f=auto,q=82/private/F5oY9xDoGodNLVtMTdVGd8LPt602/image/LNbQ0VLLOD.png 
+
+
+Muy util (TidyTuesday): 
+https://shiny.posit.co/r/gallery/miscellaneous/tidy-tuesday/ 	
