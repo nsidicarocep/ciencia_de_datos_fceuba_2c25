@@ -34,3 +34,4 @@ https://cdn.vev.design/cdn-cgi/image/f=auto,q=82/private/F5oY9xDoGodNLVtMTdVGd8L
 
 Muy util (TidyTuesday): 
 https://shiny.posit.co/r/gallery/miscellaneous/tidy-tuesday/ 	
+https://github.com/toebR/Tidy-Tuesday/tree/master/big_mac_index
