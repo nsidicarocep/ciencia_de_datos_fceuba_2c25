@@ -1,0 +1,260 @@
+---
+title: "Informe Económico: `r params$provincia`"
+author: "Observatorio Económico Provincial"
+date: "`r format(Sys.Date(), '%d de %B de %Y')`"
+output: 
+  pdf_document:
+    toc: false
+    number_sections: false
+    keep_tex: false
+params:
+  provincia: "Buenos Aires"
+  año: 2024
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = FALSE,
+  warning = FALSE,
+  message = FALSE,
+  fig.width = 7,
+  fig.height = 4,
+  fig.align = 'center',
+  # IMPORTANTE: Configurar para evitar problemas con espacios en rutas
+  dev = 'pdf',
+  fig.path = '',  # No usar subdirectorios
+  cache = FALSE
+)
+
+# Cargar librerías
+library(tidyverse)
+library(knitr)
+library(scales)
+
+# Configurar locale para fechas en español
+Sys.setlocale("LC_TIME", "Spanish")
+```
+
+```{r cargar-datos}
+# Cargar datos
+datos <- read_csv("datos_provincias.csv", show_col_types = FALSE)
+
+# Filtrar datos para la provincia seleccionada
+datos_prov <- datos %>%
+  filter(provincia == params$provincia)
+
+# Obtener datos del año actual y anterior
+datos_actual <- datos_prov %>% filter(año == params$año)
+datos_anterior <- datos_prov %>% filter(año == params$año - 1)
+
+# Calcular promedios nacionales para comparación
+promedios_nac <- datos %>%
+  filter(año == params$año) %>%
+  summarise(
+    prom_desempleo = mean(tasa_desempleo, na.rm = TRUE),
+    prom_informalidad = mean(tasa_informalidad, na.rm = TRUE),
+    prom_pbg_pc = mean(pbg_per_capita, na.rm = TRUE),
+    prom_pobreza = mean(pobreza, na.rm = TRUE)
+  )
+```
+
+## Resumen Ejecutivo
+
+Este informe presenta los principales indicadores económicos y sociales de **`r params$provincia`** para el año `r params$año`, con comparaciones respecto al año anterior y al promedio nacional.
+
+\vspace{0.5cm}
+
+## 1. Indicadores Principales
+
+```{r tabla-indicadores}
+# Crear tabla de indicadores principales
+tabla_indicadores <- tibble(
+  Indicador = c(
+    "Población (miles)",
+    "PBG per cápita ($000)",
+    "Tasa de desempleo (%)",
+    "Tasa de informalidad (%)",
+    "Tasa de pobreza (%)"
+  ),
+  Valor_2024 = c(
+    round(datos_actual$poblacion, 0),
+    round(datos_actual$pbg_per_capita, 0),
+    round(datos_actual$tasa_desempleo, 1),
+    round(datos_actual$tasa_informalidad, 1),
+    round(datos_actual$pobreza, 1)
+  ),
+  Valor_2023 = c(
+    round(datos_anterior$poblacion, 0),
+    round(datos_anterior$pbg_per_capita, 0),
+    round(datos_anterior$tasa_desempleo, 1),
+    round(datos_anterior$tasa_informalidad, 1),
+    round(datos_anterior$pobreza, 1)
+  ),
+  Variacion = c(
+    round(((datos_actual$poblacion - datos_anterior$poblacion) / 
+             datos_anterior$poblacion) * 100, 2),
+    round(((datos_actual$pbg_per_capita - datos_anterior$pbg_per_capita) / 
+             datos_anterior$pbg_per_capita) * 100, 2),
+    round(datos_actual$tasa_desempleo - datos_anterior$tasa_desempleo, 2),
+    round(datos_actual$tasa_informalidad - datos_anterior$tasa_informalidad, 2),
+    round(datos_actual$pobreza - datos_anterior$pobreza, 2)
+  )
+) %>%
+  mutate(
+    Variacion = paste0(ifelse(Variacion > 0, "+", ""), 
+                       format(Variacion, nsmall = 1), 
+                       ifelse(row_number() == 1, "%", 
+                              ifelse(row_number() == 2, "%", " pp")))
+  )
+
+kable(tabla_indicadores, 
+      col.names = c("Indicador", "2024", "2023", "Var. interanual"),
+      align = c("l", "r", "r", "r"),
+      caption = "Principales indicadores económicos y sociales")
+```
+
+\vspace{0.5cm}
+
+**Sector principal:** `r datos_actual$sector_principal`
+
+\vspace{0.3cm}
+
+## 2. Comparación con el Promedio Nacional
+
+```{r grafico-comparacion, fig.width=6, fig.height=3.5}
+# Preparar datos para comparación
+datos_comp <- tibble(
+  Indicador = c("Desempleo", "Informalidad", "Pobreza"),
+  Provincia = c(
+    datos_actual$tasa_desempleo,
+    datos_actual$tasa_informalidad,
+    datos_actual$pobreza
+  ),
+  Nacional = c(
+    promedios_nac$prom_desempleo,
+    promedios_nac$prom_informalidad,
+    promedios_nac$prom_pobreza
+  )
+) %>%
+  pivot_longer(cols = c(Provincia, Nacional), 
+               names_to = "Nivel", 
+               values_to = "Valor")
+
+# Gráfico de comparación
+ggplot(datos_comp, aes(x = Indicador, y = Valor, fill = Nivel)) +
+  geom_col(position = "dodge", width = 0.7) +
+  geom_text(aes(label = paste0(round(Valor, 1), "%")), 
+            position = position_dodge(width = 0.7),
+            vjust = -0.5, size = 3) +
+  scale_fill_manual(values = c("Provincia" = "#2E86AB", 
+                                "Nacional" = "#95A5A6")) +
+  labs(
+    title = paste0("Comparación: ", params$provincia, " vs. Nacional"),
+    subtitle = paste0("Año ", params$año),
+    x = NULL,
+    y = "Porcentaje (%)",
+    fill = NULL
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "top",
+    plot.title = element_text(face = "bold", size = 11),
+    plot.subtitle = element_text(size = 9)
+  ) +
+  ylim(0, max(datos_comp$Valor) * 1.15)
+```
+
+\vspace{0.5cm}
+
+## 3. Evolución Temporal del PBG per cápita
+
+```{r grafico-pbg, fig.width=6, fig.height=3.5}
+# Gráfico de evolución del PBG
+ggplot(datos_prov, aes(x = factor(año), y = pbg_per_capita)) +
+  geom_col(fill = "#06A77D", width = 0.6) +
+  geom_text(aes(label = paste0("$", format(round(pbg_per_capita, 0), 
+                                            big.mark = ".",
+                                            decimal.mark = ","))),
+            vjust = -0.5, size = 3.5) +
+  labs(
+    title = paste0("Evolución del PBG per cápita: ", params$provincia),
+    x = "Año",
+    y = "Miles de pesos"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(face = "bold", size = 11)
+  ) +
+  scale_y_continuous(labels = label_number(big.mark = ".", decimal.mark = ","))
+```
+
+\vspace{0.5cm}
+
+## 4. Actividad Económica
+
+```{r tabla-actividad}
+# Tabla de actividad económica
+tabla_actividad <- tibble(
+  Concepto = c(
+    "Crecimiento del PBG (%)",
+    "Exportaciones (millones USD)",
+    "Inversión pública (millones $)"
+  ),
+  Valor = c(
+    round(datos_actual$crecimiento_pbg, 2),
+    round(datos_actual$exportaciones, 0),
+    round(datos_actual$inversion_publica, 0)
+  )
+) %>%
+  mutate(
+    Valor = case_when(
+      Concepto == "Crecimiento del PBG (%)" ~ 
+        paste0(format(Valor, nsmall = 2), "%"),
+      TRUE ~ format(Valor, big.mark = ".", decimal.mark = ",")
+    )
+  )
+
+kable(tabla_actividad,
+      col.names = c("Concepto", paste0("Año ", params$año)),
+      align = c("l", "r"),
+      caption = "Indicadores de actividad económica")
+```
+
+\vspace{0.5cm}
+
+## 5. Conclusiones
+
+```{r conclusiones, results='asis'}
+# Generar conclusiones automáticas basadas en los datos
+desempleo_texto <- ifelse(
+  datos_actual$tasa_desempleo < promedios_nac$prom_desempleo,
+  "por debajo del promedio nacional",
+  "por encima del promedio nacional"
+)
+
+pbg_variacion <- round(datos_actual$variacion_pbg_pc, 1)
+pbg_texto <- ifelse(
+  pbg_variacion > 0,
+  paste0("registró un crecimiento de ", pbg_variacion, "% en términos reales"),
+  paste0("experimentó una caída de ", abs(pbg_variacion), "%")
+)
+
+cat(paste0("- La tasa de desempleo en ", params$provincia, " se ubicó en ", 
+           round(datos_actual$tasa_desempleo, 1), "%, ", desempleo_texto, 
+           " (", round(promedios_nac$prom_desempleo, 1), "%).\n\n"))
+
+cat(paste0("- El PBG per cápita ", pbg_texto, " respecto al año anterior.\n\n"))
+
+cat(paste0("- El sector ", datos_actual$sector_principal, 
+           " continúa siendo el principal motor de la economía provincial.\n\n"))
+
+cat(paste0("- Las exportaciones alcanzaron los USD ", 
+           format(round(datos_actual$exportaciones, 0), big.mark = "."), 
+           " millones, representando una parte importante de la actividad económica.\n"))
+```
+
+\vspace{1cm}
+
+---
+
+*Nota: Los datos presentados en este informe son ficticios y fueron generados con fines demostrativos para ilustrar el uso de reportes automáticos en RMarkdown.*
