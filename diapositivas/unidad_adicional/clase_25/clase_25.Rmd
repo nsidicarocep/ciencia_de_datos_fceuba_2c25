@@ -1,0 +1,545 @@
+---
+title: "Introducción a Series de Tiempo"
+subtitle: "Tendencia, Estacionalidad y Correlación Espuria"
+author: "Nicolás Sidicaro"
+date: "`r Sys.Date()`"
+output: 
+  xaringan::moon_reader:
+    css: [default, metropolis, metropolis-fonts]
+    lib_dir: libs
+    nature:
+      highlightStyle: github
+      highlightLines: true
+      countIncrementalSlides: false
+      ratio: "16:9"
+
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE,
+                      fig.width = 10, fig.height = 5)
+library(tidyverse)
+library(forecast)
+library(tseries)
+library(WDI)
+library(scales)
+```
+
+# ¿Qué es una Serie de Tiempo?
+
+**Definición**: Secuencia de observaciones de una variable tomadas en intervalos regulares de tiempo
+
+**Características principales:**
+
+- Los datos están ordenados temporalmente
+- El orden importa (no podemos reordenar las observaciones)
+- Existe dependencia temporal (correlación serial)
+
+**Ejemplos económicos:**
+
+- PIB trimestral
+- Tasa de inflación mensual
+- Precio de acciones diario
+- Producción industrial mensual
+
+---
+
+# ¿Por qué son diferentes?
+
+```{r echo=FALSE}
+# Datos de ejemplo
+set.seed(123)
+datos_cross <- tibble(
+  pais = paste("País", 1:50),
+  pib = rnorm(50, 100, 20)
+)
+
+datos_ts <- tibble(
+  tiempo = 1:50,
+  pib = cumsum(rnorm(50, 0.5, 2)) + 100
+)
+
+par(mfrow = c(1, 2))
+plot(datos_cross$pib, main = "Datos de Corte Transversal", 
+     xlab = "País", ylab = "PIB", pch = 19)
+plot(datos_ts$tiempo, datos_ts$pib, type = "l", 
+     main = "Serie de Tiempo", xlab = "Tiempo", ylab = "PIB")
+```
+
+- **Izquierda**: Observaciones independientes (supuesto de regresión clásica)
+- **Derecha**: Observaciones dependientes en el tiempo
+
+---
+
+# Los Cuatro Componentes de una Serie
+
+$$Y_t = T_t + S_t + C_t + I_t$$
+
+1. **Tendencia (T)**: Movimiento de largo plazo (crecimiento o declive)
+
+2. **Estacionalidad (S)**: Patrones que se repiten en períodos fijos (mensual, trimestral)
+
+3. **Ciclo (C)**: Fluctuaciones de medio plazo (ciclos económicos)
+
+4. **Irregular (I)**: Variaciones aleatorias o impredecibles
+
+---
+
+# Tendencia
+
+Movimiento general de largo plazo de la serie
+
+**Tipos comunes:**
+
+- **Lineal**: Crecimiento o declive constante
+- **Exponencial**: Tasa de crecimiento constante
+- **Estocástica**: Random walk
+
+```{r echo=FALSE, fig.height=4}
+tiempo <- 1:100
+tendencia_lineal <- 2 + 0.5 * tiempo
+tendencia_exp <- 10 * exp(0.02 * tiempo)
+tendencia_stocast <- cumsum(rnorm(100, 0.3, 1))
+
+tibble(
+  tiempo = rep(tiempo, 3),
+  valor = c(tendencia_lineal, tendencia_exp, tendencia_stocast),
+  tipo = rep(c("Lineal", "Exponencial", "Estocástica"), each = 100)
+) %>%
+  ggplot(aes(tiempo, valor, color = tipo)) +
+  geom_line(linewidth = 1) +
+  facet_wrap(~tipo, scales = "free_y") +
+  theme_minimal() +
+  theme(legend.position = "none")
+```
+
+---
+
+# Estacionalidad
+
+Patrones regulares que se repiten en períodos fijos
+
+**Ejemplos económicos:**
+
+- **Ventas minoristas**: Picos en diciembre (fiestas)
+- **Turismo**: Alta en verano, baja en invierno
+- **Construcción**: Baja en épocas de más lluvia (clima)
+- **Desempleo**: Aumenta post-fiestas (despidos temporales)
+
+**Importante**: Frecuencia = cantidad de observaciones por ciclo
+
+- Datos mensuales: frecuencia = 12
+- Datos trimestrales: frecuencia = 4
+
+---
+
+# Visualizando Estacionalidad
+
+```{r echo=FALSE}
+# Usar AirPassengers como ejemplo
+data("AirPassengers")
+autoplot(AirPassengers) +
+  labs(title = "Pasajeros Aéreos Mensuales (1949-1960)",
+       y = "Miles de pasajeros", x = "") +
+  theme_minimal()
+```
+
+Patrón claro: **crece en verano, baja en invierno** (cada año)
+
+---
+
+# Modelos Aditivo vs Multiplicativo
+
+**Modelo Aditivo**: $Y_t = T_t + S_t + I_t$
+
+- La estacionalidad es **constante** en el tiempo
+- Variaciones absolutas similares
+
+**Modelo Multiplicativo**: $Y_t = T_t \times S_t \times I_t$
+
+- La estacionalidad **crece** con la tendencia
+- Variaciones proporcionales (más común en economía)
+
+**¿Cómo elegir?**
+
+- Si la amplitud estacional aumenta → Multiplicativo
+- Si la amplitud estacional es constante → Aditivo
+
+---
+
+# Descomposición de Series
+
+**Objetivo**: Separar los componentes para entenderlos individualmente
+
+```{r echo=FALSE, fig.height=6}
+decomp <- decompose(AirPassengers, type = "multiplicative")
+autoplot(decomp) +
+  theme_minimal()
+```
+
+---
+
+# ¿Qué es la Estacionariedad?
+
+Una serie es **estacionaria** si sus propiedades estadísticas no cambian en el tiempo:
+
+1. **Media constante**: $E(Y_t) = \mu$ para todo $t$
+2. **Varianza constante**: $Var(Y_t) = \sigma^2$ para todo $t$
+3. **Autocovarianza constante**: $Cov(Y_t, Y_{t-k})$ solo depende de $k$
+
+**¿Por qué importa?**
+
+- Muchos modelos estadísticos asumen estacionariedad
+- Regresiones con series no estacionarias pueden dar resultados falsos
+
+---
+
+# Series No Estacionarias
+
+```{r echo=FALSE, fig.height=4}
+set.seed(42)
+tiempo <- 1:200
+
+# Serie estacionaria
+estacionaria <- rnorm(200, 50, 10)
+
+# Serie con tendencia
+con_tendencia <- 20 + 0.3 * tiempo + rnorm(200, 0, 5)
+
+# Random walk
+random_walk <- cumsum(rnorm(200, 0, 3))
+
+tibble(
+  tiempo = rep(tiempo, 3),
+  valor = c(estacionaria, con_tendencia, random_walk),
+  tipo = rep(c("Estacionaria", "Con Tendencia", "Random Walk"), each = 200)
+) %>%
+  ggplot(aes(tiempo, valor)) +
+  geom_line(color = "steelblue") +
+  facet_wrap(~tipo, scales = "free_y") +
+  theme_minimal() +
+  labs(x = "Tiempo", y = "Valor")
+```
+
+---
+
+# El Problema: Correlación Espuria
+
+**Definición**: Relación estadística fuerte entre dos variables que en realidad no tienen conexión causal
+
+**¿Por qué ocurre?**
+
+- Ambas series tienen tendencia
+- Ambas son no estacionarias
+- La regresión detecta correlación en las tendencias, no en las variables
+
+**Resultado**: p-valores significativos, R² alto, ¡pero conclusiones falsas!
+
+---
+
+# Ejemplo Clásico: Nicolas Cage
+
+```{r echo=FALSE, fig.height=4.5}
+# Datos simulados basados en el ejemplo famoso
+set.seed(99)
+anios <- 2000:2010
+ahogamientos <- c(9, 11, 10, 9, 8, 11, 10, 12, 11, 9, 10)
+peliculas_cage <- c(2, 3, 2, 3, 1, 4, 2, 3, 4, 1, 2)
+
+tibble(anios, ahogamientos, peliculas_cage) %>%
+  ggplot(aes(peliculas_cage, ahogamientos)) +
+  geom_point(size = 3, color = "steelblue") +
+  geom_smooth(method = "lm", se = FALSE, color = "red") +
+  labs(title = "Películas de Nicolas Cage vs Ahogamientos en piscinas",
+       subtitle = "Correlación = 0.66, pero sin relación causal",
+       x = "Películas de Nicolas Cage", 
+       y = "Ahogamientos") +
+  theme_minimal()
+```
+
+**Moraleja**: Correlación ≠ Causalidad (especialmente con series temporales)
+
+---
+
+# Ejemplo Económico Espurio
+
+```{r echo=FALSE}
+set.seed(456)
+n <- 100
+tiempo <- 1:n
+
+# PIB con tendencia
+pib <- 100 + 2*tiempo + cumsum(rnorm(n, 0, 5))
+
+# Población con tendencia (sin relación real con PIB)
+poblacion <- 40 + 0.3*tiempo + cumsum(rnorm(n, 0, 1))
+
+modelo_espurio <- lm(pib ~ poblacion)
+
+tibble(tiempo, pib, poblacion) %>%
+  ggplot(aes(tiempo)) +
+  geom_line(aes(y = scale(pib), color = "PIB")) +
+  geom_line(aes(y = scale(poblacion), color = "Población")) +
+  labs(title = "Dos series con tendencia",
+       subtitle = paste0("Correlación aparente, R² = ", 
+                        round(summary(modelo_espurio)$r.squared, 3)),
+       y = "Valores estandarizados", color = "") +
+  theme_minimal() +
+  theme(legend.position = "bottom")
+```
+
+**Problema**: La regresión dirá que existe una relación significativa
+
+---
+
+# Detectando el Problema
+
+**Test de Dickey-Fuller Aumentado (ADF)**
+
+- $H_0$: La serie tiene raíz unitaria (no estacionaria)
+- $H_1$: La serie es estacionaria
+
+**Interpretación**:
+
+- **p-valor < 0.05**: Rechazamos $H_0$ → Serie estacionaria ✓
+- **p-valor > 0.05**: No rechazamos $H_0$ → Serie no estacionaria ✗
+
+```{r echo=FALSE, eval=FALSE}
+# Ejemplo en código
+adf.test(serie_no_estacionaria)
+# p-valor = 0.45 → No estacionaria
+```
+
+---
+
+# Solución 1: Diferenciación
+
+**Primera diferencia**: $\Delta Y_t = Y_t - Y_{t-1}$
+
+- Elimina tendencias lineales
+- Convierte series no estacionarias en estacionarias
+
+**Segunda diferencia**: $\Delta^2 Y_t = \Delta Y_t - \Delta Y_{t-1}$
+
+- Para tendencias cuadráticas
+- Menos común
+
+```{r echo=FALSE, fig.height=3.5}
+set.seed(789)
+serie_original <- cumsum(rnorm(100, 1, 3))
+serie_diff <- diff(serie_original)
+
+par(mfrow = c(1, 2))
+plot(serie_original, type = "l", main = "Serie Original (No Estacionaria)",
+     ylab = "Valor", xlab = "Tiempo")
+plot(serie_diff, type = "l", main = "Primera Diferencia (Estacionaria)",
+     ylab = "Cambio", xlab = "Tiempo")
+abline(h = 0, col = "red", lty = 2)
+```
+
+---
+
+# Solución 2: Trabajar con Tasas de Crecimiento
+
+En economía, frecuentemente usamos:
+
+**Variación porcentual**: 
+$$\text{Cambio \%} = \frac{Y_t - Y_{t-1}}{Y_{t-1}} \times 100$$
+
+**Diferencia logarítmica**: 
+$$\Delta \log(Y_t) = \log(Y_t) - \log(Y_{t-1}) \approx \text{tasa de crecimiento}$$
+
+**Ventajas**:
+
+- Estabiliza varianza
+- Elimina tendencia exponencial
+- Interpretación económica directa
+
+---
+
+# Desestacionalización: ¿Por qué importa?
+
+**Objetivo**: Remover el componente estacional para ver mejor la tendencia y ciclo
+
+**Aplicaciones prácticas:**
+
+- Comparar series de diferentes períodos sin distorsión estacional
+- Identificar puntos de inflexión en el ciclo económico
+- Mejorar la precisión de pronósticos de corto plazo
+- Facilitar análisis de regresión con variables temporales
+
+**Ejemplo**: El PIB de Argentina suele crecer en Q4 (fiestas, aguinaldo)
+
+- Si veo crecimiento en Q4 2024, ¿es por estacionalidad o por mejora real?
+- La serie desestacionalizada elimina este efecto repetitivo
+
+---
+
+# Métodos de Desestacionalización
+
+**1. Descomposición Clásica** (ya vimos)
+- Separa componentes aditivos o multiplicativos
+- Simple pero rígido (patrón estacional fijo)
+
+**2. STL (Seasonal-Trend decomposition using Loess)**
+- Más robusto a outliers
+- Permite variación del patrón estacional
+
+**3. X-13ARIMA-SEATS**
+- Método "oficial" usado por INDEC, BEA, Eurostat
+- Incorpora efectos de calendario y valores atípicos
+- Basado en modelos ARIMA
+
+**4. ARIMA para desestacionalización**
+- Modela automáticamente la estructura de la serie
+- Identifica el tipo y orden de diferenciación necesaria
+
+---
+
+# Introducción rápida a ARIMA
+
+ARIMA = **A**uto**R**egressive **I**ntegrated **M**oving **A**verage
+
+**Estructura**: ARIMA(p, d, q) × (P, D, Q)_s
+
+- **p**: Orden autorregresivo (AR) - valores pasados
+- **d**: Orden de diferenciación (I) - para estacionarizar
+- **q**: Orden de media móvil (MA) - errores pasados
+- **P, D, Q**: Versión estacional de p, d, q
+- **s**: Frecuencia estacional (12 para mensual, 4 para trimestral)
+
+**No profundizaremos en la selección manual**, usaremos `auto.arima()`
+
+---
+
+# ARIMA para Desestacionalización
+
+```{r echo=FALSE, fig.height=4.5}
+# Ejemplo con AirPassengers
+library(forecast)
+library(seasonal)
+
+# Ajustar modelo ARIMA automático
+modelo_arima <- auto.arima(AirPassengers)
+
+# Extraer serie desestacionalizada
+serie_desestac <- seasadj(decompose(AirPassengers, type = "multiplicative"))
+
+# Comparación
+autoplot(AirPassengers, series = "Original") +
+  autolayer(serie_desestac, series = "Desestacionalizada") +
+  labs(title = "Serie Original vs Desestacionalizada",
+       y = "Pasajeros") +
+  theme_minimal()
+```
+
+La serie desestacionalizada muestra solo tendencia + ciclo + irregular
+
+---
+
+# Comparación de Métodos
+
+```{r echo=FALSE, fig.height=5}
+# Desestacionalización con diferentes métodos
+decomp_mult <- decompose(AirPassengers, type = "multiplicative")
+decomp_stl <- stl(AirPassengers, s.window = "periodic")
+
+# Series desestacionalizadas
+desest_clasica <- seasadj(decomp_mult)
+desest_stl <- seasadj(decomp_stl)
+
+# Comparación visual
+tibble(
+  tiempo = time(AirPassengers),
+  Original = as.numeric(AirPassengers),
+  Clásica = as.numeric(desest_clasica),
+  STL = as.numeric(desest_stl)
+) %>%
+  pivot_longer(-tiempo, names_to = "Método", values_to = "Valor") %>%
+  ggplot(aes(tiempo, Valor, color = Método)) +
+  geom_line(linewidth = 0.8) +
+  labs(title = "Comparación de Métodos de Desestacionalización") +
+  theme_minimal()
+```
+
+Los métodos dan resultados similares pero no idénticos
+
+---
+
+# X-13ARIMA-SEATS: El Estándar Oficial
+
+**¿Qué es?**
+
+- Método desarrollado por U.S. Census Bureau
+- Usado por INDEC, INE, BEA, Eurostat y bancos centrales
+- Combina ARIMA con ajustes de calendario y outliers
+
+**Ventajas:**
+
+- Maneja efectos de calendario (días hábiles, Semana Santa móvil)
+- Detecta y ajusta automáticamente outliers
+- Produce diagnósticos de calidad detallados
+
+**En R**: Paquete `seasonal`
+
+```{r eval=FALSE}
+library(seasonal)
+modelo_x13 <- seas(mi_serie)
+serie_ajustada <- final(modelo_x13)
+```
+
+
+---
+
+# Buenas Prácticas con Series de Tiempo
+
+1. **Siempre graficar primero**: Identificar patrones visuales
+
+2. **Verificar estacionariedad**: Usar tests formales (ADF)
+
+3. **Transformar si es necesario**: Diferenciación, logs, etc.
+
+4. **Cuidado con correlación espuria**: No regresar series con tendencia directamente
+
+5. **Considerar estacionalidad**: Ajustar o desestacionalizar
+
+6. **Interpretar en contexto**: Las series económicas tienen historia
+
+---
+
+# ¿Qué NO cubrimos hoy?
+
+Debido al tiempo limitado, dejamos para otra vida:
+
+- Modelos ARIMA (AutoRegresivos Integrados de Media Móvil)
+- Función de Autocorrelación (ACF y PACF)
+- Predicción/Forecasting formal
+- Cointegración y modelos de corrección de errores
+- Modelos GARCH para volatilidad
+- Series multivariadas (VAR)
+
+**Estos requieren más tiempo y profundidad matemática**
+
+---
+
+# Recursos extra
+
+**Libros:**
+
+- Hyndman & Athanasopoulos - *Forecasting: Principles and Practice* (https://robjhyndman.com/uwafiles/fpp-notes.pdf)
+- Wooldridge - *Introductory Econometrics* (cap. 10-12)
+
+**Online:**
+
+- OTexts.com/fpp3 (libro interactivo en R)
+
+**Paquetes de R:**
+
+- `forecast`: Modelos clásicos
+- `tseries`: Tests y análisis
+- `fable`: Framework moderno (tidyverse)
+
+---
+
+# ¡Gracias!
+
